@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from torch import nn
 import h5py
+from itertools import product
+from functools import reduce
 from TorClasses import *
 from contractions_handler import *
 from Hadrontractions_Converter import *
@@ -57,13 +59,23 @@ class Hadron:
         for i in range(N_Combinations):
             c_info_i = spin_structures[i]
             q0, q1 = Hdrn + (0,), Hdrn + (1,)
-            comb_i = {q0: c_info_i[0], q1: c_info_i[1], 'dis_info': c_info_i[-3:], 'ff': coefficients[i]}
+            comb_i = {q0: c_info_i[0], q1: c_info_i[1], Hdrn: {'Factor': coefficients[i], 'dis': c_info_i[-3:]} }
             if Spin_Displacement_N == 6:
                 q2         = Hdrn + (2,)
                 comb_i[q2] = c_info_i[1]
             list_info.append(comb_i)
         return list_info
 
+def hadron_info_multiplier(*hadrons):
+    hadrons = [hadron.getInfo() for hadron in hadrons]
+    def two_map_multiplier(map1, map2):
+        final_info_map = map1.copy()
+        for info in map2:
+            final_info_map[info] = map2[info]
+        return final_info_map
+    return [reduce(two_map_multiplier, combo) for combo in product(*hadrons)]
+     
+        
 
 
 # Perambulator with explicit spin indices
