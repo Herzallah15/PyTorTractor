@@ -1083,7 +1083,7 @@ def Sigma(ispin, mntm1 = None):
     else:
         mntm = mntm1
     state = {1: hdrn(1, 'Sigma', mntm, 'u', 'u', 's', barness = fls), 0:  hdrn(2**(1/2), 'Sigma', mntm, 'u', 'd', 's', barness = fls),
-           -1:  hdrn(1, 'Sigma', mntm, 'd', 'd', 'd', barness = fls)}
+           -1:  hdrn(1, 'Sigma', mntm, 'd', 'd', 's', barness = fls)}
     if ispin in state:
         return state[ispin]
     else:
