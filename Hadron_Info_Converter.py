@@ -75,31 +75,34 @@ def hadron_info_multiplier(*hadrons):
         return final_info_map
     return [reduce(two_map_multiplier, combo) for combo in product(*hadrons)]
      
-        
 
 
-# Perambulator with explicit spin indices
-class Spin_Perambulator:
-    def __init__(self, perambulator:Perambulator, s, s_Bar, mom_dis_t, mom_dis_t_Bar):
-        self.perambulator   = perambulator
-        self.s              = s
-        self.s_Bar          = s_Bar
-        self.mom_dis_t      = mom_dis_t
-        self.mom_dis_t_Bar  = mom_dis_t_Bar
+
+
+
+class ExplicitPerambulator:
+    #comb_info is one element of hadron_info_multiplier
+    def __init__(self, perambulator:Perambulator, comb_info):
+        self.perambulator = perambulator
+        self.comb_info    = comb_info
     def getPerambulator(self):
         return self.perambulator
     def getS(self):
-        return self.s
+        return self.comb_info[tuple(self.getPerambulator().getQ().tolist())].item()
     def getS_Bar(self):
-        return self.s_Bar
-    def getMom_Dis_T(self):
-        return self.mom_dis_t
-    def getMom_Dis_T_Bar(self):
-        return self.mom_dis_t_Bar
+        return self.comb_info[tuple(self.getPerambulator().getQ_Bar().tolist())].item()
+    def getDis(self):
+        return self.comb_info[tuple(self.getPerambulator().getH().tolist())]['dis']
+    def getDis_Bar(self):
+        return self.comb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['dis']
+    def getFF(self):
+        ff1 = self.comb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item()
+        ff2 = self.comb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item()
+        return ff1 * ff2
 
-# Momentum_Converter
+# Done until here!
 
-class Spin_Perambulator_Container_on_GPU:
+class ExplicitPerambulator_Container:
     def __init__(self, perambulator_container:Perambulator_Container, path_to_baryon_info = None, path_to_meson_info = None,
                 ):
         self.perambulator_container = perambulator_container
