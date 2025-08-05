@@ -1,7 +1,0 @@
-# Byte-compiled / cache files
-__pycache__/
-*.hdf5
-*.h5
-*.ipynb
-old/
-.DS_Store
