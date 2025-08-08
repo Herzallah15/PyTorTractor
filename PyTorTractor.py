@@ -3,7 +3,6 @@ import torch
 from torch import nn
 import platform
 import warnings
-from typing import Optional
 import h5py
 from itertools import product
 from functools import reduce
@@ -11,58 +10,7 @@ from TorClasses import *
 from contractions_handler import *
 from Hadrontractions_Converter import *
 from Hadron_Info_Converter import *
-
-
-
-def get_best_device(use_gpu: bool = True, device_id: Optional[int] = None, verbose: bool = True) -> torch.device:
-    if not use_gpu:
-        device = torch.device("cpu")
-        if verbose:
-            print(f"Using CPU (GPU usage disabled)")
-        return device
-    if torch.cuda.is_available():
-        if device_id is not None:
-            if device_id >= torch.cuda.device_count():
-                warnings.warn(f"GPU device {device_id} not available. Using GPU 0 instead.")
-                device_id = 0
-            device = torch.device(f"cuda:{device_id}")
-        else:
-            device = torch.device("cuda")
-        
-        if verbose:
-            gpu_name = torch.cuda.get_device_name(device)
-            gpu_count = torch.cuda.device_count()
-            memory_gb = torch.cuda.get_device_properties(device).total_memory / 1e9
-            print(f"Using NVIDIA GPU: {gpu_name}")
-            print(f"Device: {device} ({gpu_count} GPU(s) available)")
-            print(f"Memory: {memory_gb:.1f} GB")
-        return device
-    
-    if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-        try:
-            test_tensor = torch.zeros(1, device='mps')
-            del test_tensor
-            device = torch.device("mps")
-            if verbose:
-                print(f"Using Apple Silicon GPU (MPS)")
-                print(f"Device: {device}")
-                print(f"System: {platform.machine()}")
-            return device
-        except Exception as e:
-            if verbose:
-                warnings.warn(f"MPS available but not functional: {e}. Falling back to CPU.")
-    device = torch.device("cpu")
-    if verbose:
-        print(f"Using CPU")
-        print(f"Reason: No compatible GPU found or GPU unavailable")
-        print(f"System: {platform.system()} {platform.machine()}")
-        system = platform.system().lower()
-        if system in ['linux', 'windows']:
-            print(f"For NVIDIA GPU support, install: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
-        elif system == 'darwin':
-            print(f"For Apple Silicon GPU support, ensure macOS 12.3+ and install: pip install torch torchvision torchaudio")
-    return device
-
+from PyTorDefinitions import *
 
 
 class PyCorrTorch:
@@ -88,16 +36,36 @@ class PyCorrTorch:
         with h5py.File(self.Path_Perambulator, 'r') as yunus:
             yunus1        = yunus[f'/PerambulatorData/srcTime{self.SourceTime}_snkTime{self.SinkTime}']
             N             = int(np.sqrt( yunus1['srcSpin1']['snkSpin1']['re'].shape[0]))
-            P_SuperTensor = torch.zeros((4, 4, N, N), dtype=complex).to(self.device)
+            P_SuperTensor = torch.zeros((4, 4, N, N), dtype=torch.complex128)
             for i in range(4):
                 for j in range(4):
                     P_SuperTensor[i, j, :, :] = torch.complex(
                         torch.from_numpy(
                             yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['re'][:]).reshape(N, N), 
                         torch.from_numpy(
-                            yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N)).to(self.device)
+                            yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N))
             #P^{s_{snk} s_{src} snkevn srcevn}
-            self.P_SuperTensor = P_SuperTensor
+            gamma5 = torch.tensor([
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [1, 0, 0, 0],
+                [0, 1, 0, 0]
+            ], dtype=P_SuperTensor.dtype)
+    
+            gamma4 = torch.tensor([
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, -1, 0],
+                [0, 0, 0, -1]
+            ], dtype=P_SuperTensor.dtype)
+            gM                    = torch.matmul(gamma5, gamma4)
+            P_Re_SuperTensor      = torch.einsum('ij,jnlm,nk->iklm', gM, P_SuperTensor, gM)
+            if self.device.type == 'mps':
+                self.P_SuperTensor = P_SuperTensor.to(dtype=torch.complex64).to(self.device)
+                self.P_Re_SuperTensor = P_Re_SuperTensor.to(dtype=torch.complex64).to(self.device)
+            else:
+                self.P_SuperTensor = P_SuperTensor.to(self.device)
+                self.P_Re_SuperTensor = P_Re_SuperTensor.to(self.device)
             print(r'Perambulator_Tensor has been successfully constructed')
 
         # Construct now the ModeDoublet_Super_Tensor
@@ -129,6 +97,13 @@ class PyCorrTorch:
         # Cluster the Diagrams
         self.clusters, self.WT_numerical_factors = cluster_extractor(Path_Diagrams = self.Path_Wicktract)
 
+        # Sort the hadrons to baryons and mesons so later it becomes easier to extract MT and MD
+        hadron_type_mom_map = {}
+        for hdrn in self.Hadrons:
+            hadron_type_mom_map[hdrn.getHadron_Position()] = {'T': hdrn_type(hdrn.getHadron_Type()), 'P': momentum(hdrn.getMomentum())}
+        self.hadron_type_mom_map = hadron_type_mom_map
+
+
         # SpinStructure Combinations between the hadrons
         self.hadron_product = hadron_info_multiplier(*self.Hadrons)
         print('All combinations of hadron structures coefficients were generated')
@@ -144,5 +119,75 @@ class PyCorrTorch:
 # where PCi = [Explicit_Perambulator1, Explicit_Perambulator2,...]
 # and in Toplogy after contracting each PCi with the corresponding Tensor all results need to be summed with each others!
 # I.e. Topology is actually sum(PCi)
-    def getclusters_with_kies(self):
-        return self.clusters_with_kies
+
+    def TorchTractor(self):
+# outer cluster is somethong of the form: ((0, 1), (0, 0), (1, 0), (1, 1))
+# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
+        def Modes_Setup(outer_cluster, exp_prmp_container):
+            dis_paths = {}
+            for prp in exp_prmp_container:
+                if prp.getH() not in dis_paths:
+                    dis_paths[prp.getH()] = ddir(prp.getDis())
+                if prp.getH_Bar() not in dis_paths:
+                    dis_paths[prp.getH_Bar()] = ddir(prp.getDis_Bar())
+            Mode_Indices = ''
+            Mode_Tensors = []
+            for hadron in outer_cluster:
+                Mode_Indices += index_map[hadron + (0,)]
+                Mode_Indices += index_map[hadron + (1,)]
+                mntm          = self.hadron_type_mom_map[hadron]['P']
+                disp          = dis_paths[hadron]
+                time          = 't'+str(self.SourceTime)
+                path          = mntm + disp + time
+                if hadron[0] == 0:
+                    if self.hadron_type_mom_map[hadron]['T'] == 'M':
+                        Mode_Tensors.append(self.MD_SuperTensor[path].conj())
+                    elif self.hadron_type_mom_map[hadron]['T'] == 'B':
+                        Mode_Tensors.append(self.MT_SuperTensor[path].conj())
+                        Mode_Indices += index_map[hadron + (2,)]
+                elif hadron[0] == 1:
+                    if self.hadron_type_mom_map[hadron]['T'] == 'M':
+                        Mode_Tensors.append(self.MD_SuperTensor[path])
+                    elif self.hadron_type_mom_map[hadron]['T'] == 'B':
+                        Mode_Tensors.append(self.MT_SuperTensor[path])
+                        Mode_Indices += index_map[hadron + (2,)]
+            return {'index': Mode_Indices, 'Tensor': Mode_Tensors}
+# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
+        def Perambulator_Setup(exp_prmp_container):
+            Prmp_Indices = ''
+            Prmp_Tensors = []
+            for perambulator in exp_prmp_container:
+                Prmp_Indices += index_map[perambulator.getQ()]
+                Prmp_Indices += index_map[perambulator.getQ_Bar()]
+                s             = perambulator.getS() - 1
+                s_Bar         = perambulator.getS_Bar() - 1
+                if (perambulator.getH()[0] == 0) and (perambulator.getH_Bar()[0] == 1):
+                    Prmp_Tensors.append(self.P_Re_SuperTensor[s, s_Bar, :, :])
+                elif (perambulator.getH()[0] == 1) and (perambulator.getH_Bar()[0] == 0):
+                    Prmp_Tensors.append( (self.P_SuperTensor[s, s_Bar, :, :] * perambulator.getFF()) )
+                elif perambulator.getH()[0] == perambulator.getH_Bar()[0]:
+                    Prmp_Tensors.append( (self.P_SuperTensor[s, s_Bar, :, :] * perambulator.getFF()) )
+            return {'index': Prmp_Indices, 'Tensor': Prmp_Tensors}
+        all_contractions  = []
+        for full_cluster in self.clusters_with_kies:
+            modes_info    = Modes_Setup(full_cluster[0][0], full_cluster[1][0])
+            modes_indices = modes_info['index']
+            modes_tensors = modes_info['Tensor']
+            prmp_list     = []
+            extractor     = Perambulator_Setup(full_cluster[1][0])
+            prmp_indizes  = extractor['index']
+            prmp_list.append(extractor['Tensor'])
+            for prmp_container in full_cluster[1][1:]:
+                peram_info = Perambulator_Setup(prmp_container)
+                if peram_info['index'] != prmp_indizes:
+                    raise ValueError('Something wrong with Perambulator_Extractor')
+                prmp_list.append(peram_info['Tensor'])
+            Prambulators = [tensor for tensor in zip(*prmp_list)]
+            Perambulators = torch.stack(prmp_list, dim=0)
+#            Prambulators = [torch.stack(tensors, dim=0) for tensors in zip(*prmp_list)]
+#            torch.stack([torch.stack(satz, dim=0) for satz in Prambulators], dim=0)
+            results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', modes_tensors, Perambulators)
+            results      = torch.sum(results, dim=0)
+            all_contractions.append(all_contractions)
+        return all_contractions
+              

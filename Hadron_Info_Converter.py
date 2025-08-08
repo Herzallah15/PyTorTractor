@@ -87,6 +87,14 @@ class ExplicitPerambulator:
         self.onecomb_info    = onecomb_info
     def getPerambulator(self):
         return self.perambulator
+    def getH(self):
+        return tuple(self.getPerambulator().getH().tolist())
+    def getH_Bar(self):
+        return tuple(self.getPerambulator().getH_Bar().tolist())
+    def getQ(self):
+        return tuple(self.getPerambulator().getQ().tolist())
+    def getQ_Bar(self):
+        return tuple(self.getPerambulator().getQ_Bar().tolist())
     def getS(self):
         return self.onecomb_info[tuple(self.getPerambulator().getQ().tolist())].item()
     def getS_Bar(self):
