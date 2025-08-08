@@ -81,49 +81,31 @@ def hadron_info_multiplier(*hadrons):
 
 
 class ExplicitPerambulator:
-    #comb_info is one element of hadron_info_multiplier
-    def __init__(self, perambulator:Perambulator, comb_info):
+    #onecomb_info is one element of hadron_info_multiplier
+    def __init__(self, perambulator:Perambulator, onecomb_info):
         self.perambulator = perambulator
-        self.comb_info    = comb_info
+        self.onecomb_info    = onecomb_info
     def getPerambulator(self):
         return self.perambulator
     def getS(self):
-        return self.comb_info[tuple(self.getPerambulator().getQ().tolist())].item()
+        return self.onecomb_info[tuple(self.getPerambulator().getQ().tolist())].item()
     def getS_Bar(self):
-        return self.comb_info[tuple(self.getPerambulator().getQ_Bar().tolist())].item()
+        return self.onecomb_info[tuple(self.getPerambulator().getQ_Bar().tolist())].item()
     def getDis(self):
-        return self.comb_info[tuple(self.getPerambulator().getH().tolist())]['dis']
+        return self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['dis']
     def getDis_Bar(self):
-        return self.comb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['dis']
+        return self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['dis']
     def getFF(self):
-        ff1 = self.comb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item()
-        ff2 = self.comb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item()
+        ff1 = self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item()
+        ff2 = self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item()
         return ff1 * ff2
 
-# Done until here!
 
-class ExplicitPerambulator_Container:
-    def __init__(self, perambulator_container:Perambulator_Container, path_to_baryon_info = None, path_to_meson_info = None,
-                ):
+
+class ExplicitPerambulator_Container_OneComb:
+    def __init__(self, perambulator_container:Perambulator_Container, onecomb_info):
         self.perambulator_container = perambulator_container
-        self.path_to_hadron_info    = path_to_hadron_info
-#    def create_Perambulators_on_GPU(self):
-#        with h5py.File(path_to_hadron_info, 'r'):
-            
-
-
-
-
-class Perambulators_on_GPU:
-    def __init__(self, *spin_perambulators):
-        self.spin_perambulators = spin_perambulators
-    def getSpin_Perambulators(self):
-        return self.spin_perambulators
-#    def __add__(self, other):
-#        a = a
-#    def __radd__(self,other):
-#        return self + other    
-
-
-
-
+        self.onecomb_info           = onecomb_info
+    def getEPerambulator_Container(self):
+        non_ex_perambulators = self.perambulator_container.getPerambulators()
+        return [ExplicitPerambulator(P, self.onecomb_info) for P in non_ex_perambulators]

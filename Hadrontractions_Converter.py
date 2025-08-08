@@ -102,7 +102,7 @@ def writeresults(dgrms_list, *operators, path = None):
 
 # rewrite the results of a process into unique clusters
 # The final result of this is at least as good as the result of Wicktrackt.. but here it is more precise and analyzed! 
-def cluster_extractor(path = None, result = None):
+def cluster_extractor(Path_Diagrams = None, result = None):
 # p is of the form     array([[1, 0, 0], [1, 1, 2]])
 # d is of the form array([[[1, 0, 0],[1, 1, 2]],
 # [[0, 1, 2], [0, 0, 0]], ...])
@@ -117,7 +117,7 @@ def cluster_extractor(path = None, result = None):
         return Diagram(dgrmn, *perambulators).organize()
     organized_diagrams            = []
     numerical_factors_of_diagrams = []
-    with h5py.File(path, 'r') as all_results:
+    with h5py.File(Path_Diagrams, 'r') as all_results:
         N = all_results['Results'].attrs['number_of_diagrams']
         for i in range(N):
             numerical_factors_of_diagrams.append(all_results['Results']['Diagram_'+str(i)]['Factor'][()])
