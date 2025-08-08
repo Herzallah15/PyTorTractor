@@ -106,6 +106,19 @@ class ExplicitPerambulator_Container_OneComb:
     def __init__(self, perambulator_container:Perambulator_Container, onecomb_info):
         self.perambulator_container = perambulator_container
         self.onecomb_info           = onecomb_info
-    def getEPerambulator_Container(self):
+    def getExplicit_Perambulators(self):
         non_ex_perambulators = self.perambulator_container.getPerambulators()
         return [ExplicitPerambulator(P, self.onecomb_info) for P in non_ex_perambulators]
+
+class Final_Perambulator_Container:
+    #all_comb is the result of hadron_info_multiplier
+    def __init__(self, perambulator_container:Perambulator_Container, all_comb):
+        self.perambulator_container = perambulator_container
+        self.all_comb               = all_comb
+    def getExplicit_Perambulator_Containers(self):
+        one_perambulator_container_to_all_explicit = []
+        for onecomb_info in self.all_comb:
+            one_perambulator_container_to_all_explicit.append(
+                ExplicitPerambulator_Container_OneComb(self.perambulator_container, 
+                                                       onecomb_info).getExplicit_Perambulators())
+        return one_perambulator_container_to_all_explicit

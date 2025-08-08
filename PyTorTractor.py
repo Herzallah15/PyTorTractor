@@ -1,6 +1,9 @@
 import numpy as np
 import torch
 from torch import nn
+import platform
+import warnings
+from typing import Optional
 import h5py
 from itertools import product
 from functools import reduce
@@ -11,34 +14,61 @@ from Hadron_Info_Converter import *
 
 
 
-# GPU Installation needs to be corrected and optimized
-def get_best_device(use_gpu=True):
-    """
-    Liefert automatisch das beste verfügbare Device:
-    - 'cuda' für NVIDIA
-    - 'mps'  für Apple Silicon
-    - 'cpu'  wenn keine GPU oder use_gpu=False
-    """
+def get_best_device(use_gpu: bool = True, device_id: Optional[int] = None, verbose: bool = True) -> torch.device:
     if not use_gpu:
-        return torch.device("cpu")
-
-    # NVIDIA GPU (CUDA)
+        device = torch.device("cpu")
+        if verbose:
+            print(f"Using CPU (GPU usage disabled)")
+        return device
     if torch.cuda.is_available():
-        return torch.device("cuda")
+        if device_id is not None:
+            if device_id >= torch.cuda.device_count():
+                warnings.warn(f"GPU device {device_id} not available. Using GPU 0 instead.")
+                device_id = 0
+            device = torch.device(f"cuda:{device_id}")
+        else:
+            device = torch.device("cuda")
+        
+        if verbose:
+            gpu_name = torch.cuda.get_device_name(device)
+            gpu_count = torch.cuda.device_count()
+            memory_gb = torch.cuda.get_device_properties(device).total_memory / 1e9
+            print(f"Using NVIDIA GPU: {gpu_name}")
+            print(f"Device: {device} ({gpu_count} GPU(s) available)")
+            print(f"Memory: {memory_gb:.1f} GB")
+        return device
+    
+    if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        try:
+            test_tensor = torch.zeros(1, device='mps')
+            del test_tensor
+            device = torch.device("mps")
+            if verbose:
+                print(f"Using Apple Silicon GPU (MPS)")
+                print(f"Device: {device}")
+                print(f"System: {platform.machine()}")
+            return device
+        except Exception as e:
+            if verbose:
+                warnings.warn(f"MPS available but not functional: {e}. Falling back to CPU.")
+    device = torch.device("cpu")
+    if verbose:
+        print(f"Using CPU")
+        print(f"Reason: No compatible GPU found or GPU unavailable")
+        print(f"System: {platform.system()} {platform.machine()}")
+        system = platform.system().lower()
+        if system in ['linux', 'windows']:
+            print(f"For NVIDIA GPU support, install: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+        elif system == 'darwin':
+            print(f"For Apple Silicon GPU support, ensure macOS 12.3+ and install: pip install torch torchvision torchaudio")
+    return device
 
-    # Apple Silicon GPU (MPS)
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
-
-    # Fallback: CPU
-    return torch.device("cpu")
-# GPU Installation needs to be corrected and optimized
 
 
 class PyCorrTorch:
     def __init__(self, SinkTime = None, SourceTime = None, 
                  Hadrons = None, Path_Wicktract = None, 
-                 Path_Perambulator = None, Path_ModeDoublet = None, Path_ModeTriplet = None, useGPU = False):
+                 Path_Perambulator = None, Path_ModeDoublet = None, Path_ModeTriplet = None, useGPU = True, Device_ID = None):
         if None in (SinkTime, SourceTime, Hadrons, Path_Wicktract, Path_Perambulator):
             raise ValueError('The Hadrons or Path_Wicktract or Path_Perambulator cannot be None')
         if (Path_ModeDoublet is None) and (Path_ModeTriplet is None):
@@ -50,24 +80,22 @@ class PyCorrTorch:
         self.Path_Perambulator = Path_Perambulator
         self.Path_ModeDoublet  = Path_ModeDoublet
         self.Path_ModeTriplet  = Path_ModeTriplet
-
         #To be modified
         self.useGPU            = useGPU
-        device = get_best_device(useGPU)
-        #To be modified
+        self.device            = get_best_device(use_gpu = self.useGPU, device_id = Device_ID, verbose = True)
 
         # Construct now the Perambulator_Super_Tensor
         with h5py.File(self.Path_Perambulator, 'r') as yunus:
             yunus1        = yunus[f'/PerambulatorData/srcTime{self.SourceTime}_snkTime{self.SinkTime}']
             N             = int(np.sqrt( yunus1['srcSpin1']['snkSpin1']['re'].shape[0]))
-            P_SuperTensor = torch.zeros((4, 4, N, N), dtype=complex).to(device)
+            P_SuperTensor = torch.zeros((4, 4, N, N), dtype=complex).to(self.device)
             for i in range(4):
                 for j in range(4):
                     P_SuperTensor[i, j, :, :] = torch.complex(
                         torch.from_numpy(
                             yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['re'][:]).reshape(N, N), 
                         torch.from_numpy(
-                            yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N)).to(device)
+                            yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N)).to(self.device)
             #P^{s_{snk} s_{src} snkevn srcevn}
             self.P_SuperTensor = P_SuperTensor
             print(r'Perambulator_Tensor has been successfully constructed')
@@ -80,7 +108,7 @@ class PyCorrTorch:
                 for group in yunus1:
                     MD_SuperTensor[yunus1[group]] = torch.complex(
                         torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(device)
+                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(self.device)
                 #G^{i j}
             self.MD_SuperTensor = MD_SuperTensor
             print(r'MD_Tensor has been successfully constructed')
@@ -93,7 +121,7 @@ class PyCorrTorch:
                 for group in yunus1:
                     MT_SuperTensor[yunus1[group]] = torch.complex(
                         torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(device)
+                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(self.device)
                 #G^{i j}
             self.MT_SuperTensor = MT_SuperTensor
             print(r'MT_Tensor has been successfully constructed')
@@ -104,9 +132,17 @@ class PyCorrTorch:
         # SpinStructure Combinations between the hadrons
         self.hadron_product = hadron_info_multiplier(*self.Hadrons)
         print('All combinations of hadron structures coefficients were generated')
+
         print('Insert now these combinations explicitly into the the clusters!')
-        clusters_with_paths = [((outer_key, inner_key), prpm_container) 
+        self.clusters_with_kies = [((outer_key, inner_key), 
+                                    Final_Perambulator_Container(prpm_container, self.hadron_product).getExplicit_Perambulator_Containers() ) 
                                for outer_key, inner_dict in self.clusters.items() 
                                for inner_key, prpm_container in inner_dict.items()]
-        
-        
+        print('Each cluster is now splitted into many clusters with various explicit spin combinations')
+# self.clusters_with_kies contains now the following: [((outer_key, inner_key), Topology), ....]
+# where Topology is of the form: [PC1, PC2, ...]
+# where PCi = [Explicit_Perambulator1, Explicit_Perambulator2,...]
+# and in Toplogy after contracting each PCi with the corresponding Tensor all results need to be summed with each others!
+# I.e. Topology is actually sum(PCi)
+    def getclusters_with_kies(self):
+        return self.clusters_with_kies
