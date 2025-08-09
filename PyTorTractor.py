@@ -13,14 +13,16 @@ from Hadron_Info_Converter import *
 from PyTorDefinitions import *
 
 
+#CPU and GPU Part MUST be checked and modified!!
+
 class PyCorrTorch:
     def __init__(self, SinkTime = None, SourceTime = None, 
                  Hadrons = None, Path_Wicktract = None, 
                  Path_Perambulator = None, Path_ModeDoublet = None, Path_ModeTriplet = None, useGPU = True, Device_ID = None):
         if None in (SinkTime, SourceTime, Hadrons, Path_Wicktract, Path_Perambulator):
-            raise ValueError('The Hadrons or Path_Wicktract or Path_Perambulator cannot be None')
+            raise ValueError(error01)
         if (Path_ModeDoublet is None) and (Path_ModeTriplet is None):
-            raise ValueError('At least there must be a path for either Path_ModeTriplet or Path_ModeDoublet')
+            raise ValueError(error02)
         self.SinkTime          = SinkTime
         self.SourceTime        = SourceTime
         self.Hadrons           = Hadrons
@@ -60,6 +62,8 @@ class PyCorrTorch:
             ], dtype=P_SuperTensor.dtype)
             gM                    = torch.matmul(gamma5, gamma4)
             P_Re_SuperTensor      = torch.einsum('ij,jnlm,nk->iklm', gM, P_SuperTensor, gM)
+
+
             if self.device.type == 'mps':
                 self.P_SuperTensor = P_SuperTensor.to(dtype=torch.complex64).to(self.device)
                 self.P_Re_SuperTensor = P_Re_SuperTensor.to(dtype=torch.complex64).to(self.device)
@@ -74,9 +78,9 @@ class PyCorrTorch:
                 yunus1         = yunus['/ModeDoubletData']
                 MD_SuperTensor = {}
                 for group in yunus1:
-                    MD_SuperTensor[yunus1[group]] = torch.complex(
+                    MD_SuperTensor[group] = torch.complex(
                         torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(self.device)
+                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=torch.complex64).to(self.device)
                 #G^{i j}
             self.MD_SuperTensor = MD_SuperTensor
             print(r'MD_Tensor has been successfully constructed')
@@ -87,9 +91,9 @@ class PyCorrTorch:
                 yunus1         = yunus['/ModeTripletData']
                 MT_SuperTensor = {}
                 for group in yunus1:
-                    MT_SuperTensor[yunus1[group]] = torch.complex(
+                    MT_SuperTensor[group] = torch.complex(
                         torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(self.device)
+                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=torch.complex64).to(self.device)
                 #G^{i j}
             self.MT_SuperTensor = MT_SuperTensor
             print(r'MT_Tensor has been successfully constructed')
@@ -102,6 +106,8 @@ class PyCorrTorch:
         for hdrn in self.Hadrons:
             hadron_type_mom_map[hdrn.getHadron_Position()] = {'T': hdrn_type(hdrn.getHadron_Type()), 'P': momentum(hdrn.getMomentum())}
         self.hadron_type_mom_map = hadron_type_mom_map
+        
+
 
 
         # SpinStructure Combinations between the hadrons
@@ -114,15 +120,9 @@ class PyCorrTorch:
                                for outer_key, inner_dict in self.clusters.items() 
                                for inner_key, prpm_container in inner_dict.items()]
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
-# self.clusters_with_kies contains now the following: [((outer_key, inner_key), Topology), ....]
-# where Topology is of the form: [PC1, PC2, ...]
-# where PCi = [Explicit_Perambulator1, Explicit_Perambulator2,...]
-# and in Toplogy after contracting each PCi with the corresponding Tensor all results need to be summed with each others!
-# I.e. Topology is actually sum(PCi)
-
+#commet_01
     def TorchTractor(self):
-# outer cluster is somethong of the form: ((0, 1), (0, 0), (1, 0), (1, 1))
-# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
+#comment_02
         def Modes_Setup(outer_cluster, exp_prmp_container):
             dis_paths = {}
             for prp in exp_prmp_container:
@@ -138,7 +138,7 @@ class PyCorrTorch:
                 mntm          = self.hadron_type_mom_map[hadron]['P']
                 disp          = dis_paths[hadron]
                 time          = 't'+str(self.SourceTime)
-                path          = mntm + disp + time
+                path          = mntm + '_' + disp + '_' + time
                 if hadron[0] == 0:
                     if self.hadron_type_mom_map[hadron]['T'] == 'M':
                         Mode_Tensors.append(self.MD_SuperTensor[path].conj())
@@ -151,8 +151,9 @@ class PyCorrTorch:
                     elif self.hadron_type_mom_map[hadron]['T'] == 'B':
                         Mode_Tensors.append(self.MT_SuperTensor[path])
                         Mode_Indices += index_map[hadron + (2,)]
+                Mode_Indices = Mode_Indices + ','
             return {'index': Mode_Indices, 'Tensor': Mode_Tensors}
-# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
+#comment_03
         def Perambulator_Setup(exp_prmp_container):
             Prmp_Indices = ''
             Prmp_Tensors = []
@@ -171,7 +172,7 @@ class PyCorrTorch:
         all_contractions  = []
         for full_cluster in self.clusters_with_kies:
             modes_info    = Modes_Setup(full_cluster[0][0], full_cluster[1][0])
-            modes_indices = modes_info['index']
+            modes_indices = modes_info['index'][:-1]
             modes_tensors = modes_info['Tensor']
             prmp_list     = []
             extractor     = Perambulator_Setup(full_cluster[1][0])
@@ -182,12 +183,9 @@ class PyCorrTorch:
                 if peram_info['index'] != prmp_indizes:
                     raise ValueError('Something wrong with Perambulator_Extractor')
                 prmp_list.append(peram_info['Tensor'])
-            Prambulators = [tensor for tensor in zip(*prmp_list)]
-            Perambulators = torch.stack(prmp_list, dim=0)
-#            Prambulators = [torch.stack(tensors, dim=0) for tensors in zip(*prmp_list)]
-#            torch.stack([torch.stack(satz, dim=0) for satz in Prambulators], dim=0)
-            results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', modes_tensors, Perambulators)
+            Perambulators = torch.stack([Tensor_Product(Qs) for Qs in prmp_list], dim=0)
+            results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', *modes_tensors, Perambulators)
             results      = torch.sum(results, dim=0)
-            all_contractions.append(all_contractions)
+            all_contractions.append(results)
+# Now you need to connect all together!
         return all_contractions
-              

@@ -9,10 +9,13 @@ import warnings
 import h5py
 from itertools import product
 from functools import reduce
+import operator
 from TorClasses import *
 from contractions_handler import *
 from Hadrontractions_Converter import *
 from Hadron_Info_Converter import *
+
+
 
 index_map = {
     (1,0,0): 'a',
@@ -49,16 +52,16 @@ index_map = {
 
 def ddir(path):
     if np.all(path == np.array([0,0,0])):
-        return '0'
+        return 'ddir0'
     else:
         raise ValueError('Displacement_CannotBe')
 def momentum(string_value):
     if string_value == 'mom_ray_000':
         return 'px0_py0_pz0'
 def hdrn_type(x):
-    if x[0] == 'meson_operators':
+    if x == 'meson_operators':
         return 'M'
-    elif x[1] == 'baryon_operators':
+    elif x == 'baryon_operators':
         return 'B'
 
 
@@ -110,3 +113,37 @@ def get_best_device(use_gpu: bool = True, device_id: Optional[int] = None, verbo
         elif system == 'darwin':
             print(f"For Apple Silicon GPU support, ensure macOS 12.3+ and install: pip install torch torchvision torchaudio")
     return device
+
+
+
+
+
+
+
+
+def Tensor_Product(Qs):
+    reshaped = [
+        q.view(*([1] * (2 * i)), q.shape[0], q.shape[1], *([1] * (2 * (len(Qs) - i - 1))))
+        for i, q in enumerate(Qs)
+    ]
+    return reduce(operator.mul, reshaped)
+
+
+
+
+
+error01 = 'The Hadrons or Path_Wicktract or Path_Perambulator cannot be None'
+error02 = 'At least there must be a path for either Path_ModeTriplet or Path_ModeDoublet'
+#comment_01:
+# self.clusters_with_kies contains now the following: [((outer_key, inner_key), Topology), ....]
+# where Topology is of the form: [PC1, PC2, ...]
+# where PCi = [Explicit_Perambulator1, Explicit_Perambulator2,...]
+# and in Toplogy after contracting each PCi with the corresponding Tensor all results need to be summed with each others!
+# I.e. Topology is actually sum(PCi)
+
+#comment_02:
+# outer cluster is somethong of the form: ((0, 1), (0, 0), (1, 0), (1, 1))
+# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
+
+#comment_03:
+# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
