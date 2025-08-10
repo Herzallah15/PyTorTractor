@@ -174,7 +174,7 @@ def combine_all(all_info):
             final_result[dgrm_nmbr].append(topology[1])
     res = 0
     for dgrm_nmbr in final_result:
-        res += numerical_factor[dgrm_nmbr] * sum(i for i in final_result[dgrm_nmbr])
+        res += (numerical_factor[dgrm_nmbr].item()) * sum(i for i in final_result[dgrm_nmbr])
     return res
 
 
