@@ -1,19 +1,4 @@
-import numpy as np
-import torch
-from torch import nn
-import platform
-import warnings
-import h5py
-from itertools import product
-from functools import reduce
-from TorClasses import *
-from contractions_handler import *
-from Hadrontractions_Converter import *
-from Hadron_Info_Converter import *
 from PyTorDefinitions import *
-
-
-#CPU and GPU Part MUST be checked and modified!!
 
 class PyCorrTorch:
     def __init__(self, SinkTime = None, SourceTime = None, 
@@ -47,29 +32,11 @@ class PyCorrTorch:
                         torch.from_numpy(
                             yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N))
             #P^{s_{snk} s_{src} snkevn srcevn}
-            gamma5 = torch.tensor([
-                [0, 0, 1, 0],
-                [0, 0, 0, 1],
-                [1, 0, 0, 0],
-                [0, 1, 0, 0]
-            ], dtype=P_SuperTensor.dtype)
-    
-            gamma4 = torch.tensor([
-                [1, 0, 0, 0],
-                [0, 1, 0, 0],
-                [0, 0, -1, 0],
-                [0, 0, 0, -1]
-            ], dtype=P_SuperTensor.dtype)
-            gM                    = torch.matmul(gamma5, gamma4)
-            P_Re_SuperTensor      = torch.einsum('ij,jnlm,nk->iklm', gM, P_SuperTensor, gM)
-
-
-            if self.device.type == 'mps':
-                self.P_SuperTensor = P_SuperTensor.to(dtype=torch.complex64).to(self.device)
-                self.P_Re_SuperTensor = P_Re_SuperTensor.to(dtype=torch.complex64).to(self.device)
-            else:
-                self.P_SuperTensor = P_SuperTensor.to(self.device)
-                self.P_Re_SuperTensor = P_Re_SuperTensor.to(self.device)
+            g5                    = gamma(5, torch.complex128).to(self.device)
+            g4                    = gamma(4, torch.complex128).to(self.device)
+            gM                    = torch.matmul(g5, g4)
+            self.P_SuperTensor    = P_SuperTensor.to(self.device)
+            self.P_Re_SuperTensor = torch.einsum('ij,jnlm,nk->iklm', gM, P_SuperTensor, gM)
             print(r'Perambulator_Tensor has been successfully constructed')
 
         # Construct now the ModeDoublet_Super_Tensor
@@ -80,7 +47,7 @@ class PyCorrTorch:
                 for group in yunus1:
                     MD_SuperTensor[group] = torch.complex(
                         torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=torch.complex64).to(self.device)
+                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=torch.complex128).to(self.device)
                 #G^{i j}
             self.MD_SuperTensor = MD_SuperTensor
             print(r'MD_Tensor has been successfully constructed')
@@ -93,7 +60,7 @@ class PyCorrTorch:
                 for group in yunus1:
                     MT_SuperTensor[group] = torch.complex(
                         torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=torch.complex64).to(self.device)
+                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=torch.complex128).to(self.device)
                 #G^{i j}
             self.MT_SuperTensor = MT_SuperTensor
             print(r'MT_Tensor has been successfully constructed')
@@ -119,6 +86,7 @@ class PyCorrTorch:
                                     Final_Perambulator_Container(prpm_container, self.hadron_product).getExplicit_Perambulator_Containers() ) 
                                for outer_key, inner_dict in self.clusters.items() 
                                for inner_key, prpm_container in inner_dict.items()]
+
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
 #commet_01
     def TorchTractor(self):
@@ -169,7 +137,7 @@ class PyCorrTorch:
                 elif perambulator.getH()[0] == perambulator.getH_Bar()[0]:
                     Prmp_Tensors.append( (self.P_SuperTensor[s, s_Bar, :, :] * perambulator.getFF()) )
             return {'index': Prmp_Indices, 'Tensor': Prmp_Tensors}
-        all_contractions  = []
+        clusters_with_kies_copy = []
         for full_cluster in self.clusters_with_kies:
             modes_info    = Modes_Setup(full_cluster[0][0], full_cluster[1][0])
             modes_indices = modes_info['index'][:-1]
@@ -186,6 +154,5 @@ class PyCorrTorch:
             Perambulators = torch.stack([Tensor_Product(Qs) for Qs in prmp_list], dim=0)
             results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', *modes_tensors, Perambulators)
             results      = torch.sum(results, dim=0)
-            all_contractions.append(results)
-# Now you need to connect all together!
-        return all_contractions
+            clusters_with_kies_copy.append((full_cluster[0], results))
+        return clusters_with_kies_copy, self.WT_numerical_factors
