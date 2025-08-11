@@ -62,19 +62,19 @@ class Hadron:
             comb_i = {q0: c_info_i[0], q1: c_info_i[1], Hdrn: {'Factor': coefficients[i], 'dis': c_info_i[-3:]} }
             if Spin_Displacement_N == 6:
                 q2         = Hdrn + (2,)
-                comb_i[q2] = c_info_i[1]
+                comb_i[q2] = c_info_i[2]
             list_info.append(comb_i)
         return list_info
 
 def hadron_info_multiplier(*hadrons):
     hadrons = [hadron.getInfo() for hadron in hadrons]
     def two_map_multiplier(map1, map2):
-        final_info_map = map1.copy()
+        final_info_map = copy.deepcopy(map1)
         for info in map2:
-            final_info_map[info] = map2[info]
+            final_info_map[info] = copy.deepcopy(map2[info])
         return final_info_map
     return [reduce(two_map_multiplier, combo) for combo in product(*hadrons)]
-     
+
 
 
 
@@ -83,7 +83,7 @@ def hadron_info_multiplier(*hadrons):
 class ExplicitPerambulator:
     #onecomb_info is one element of hadron_info_multiplier
     def __init__(self, perambulator:Perambulator, onecomb_info):
-        self.perambulator = perambulator
+        self.perambulator    = perambulator
         self.onecomb_info    = onecomb_info
     def getPerambulator(self):
         return self.perambulator

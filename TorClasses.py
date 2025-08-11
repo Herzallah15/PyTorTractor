@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 import h5py
+import copy
 #In this context I plan to have Q of the form np.array([1,0,0]) and H of the form np.array([1,0])
 class Perambulator:
     def __init__(self, Q, Q_Bar, H, H_Bar):
