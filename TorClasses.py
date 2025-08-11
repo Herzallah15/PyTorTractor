@@ -79,6 +79,8 @@ class Perambulator_Container:
                     if not found:
                         break
                 return len(seen) == len(set1)
+        else:
+            raise TypeError('A Perambulator_Container-typed object can be only compared with a Perambulator_Container-typed objects')
 class Diagram:
     def __init__(self, dgrmn, *perambulators):
         self.dgrmn         = dgrmn
@@ -96,8 +98,8 @@ class Diagram:
                 topo1 = clust1[1]
                 if i1 in used:
                     continue
-                merged_cluster = clus1.copy()
-                merged_topo    = topo1.copy()
+                merged_cluster = copy.deepcopy(clus1)
+                merged_topo    = copy.deepcopy(topo1)
                 used.add(i1)
                 for i2, clust2 in enumerate(clusters[i1+1:], i1+1):
                     clus2 = clust2[0]
@@ -128,11 +130,13 @@ class Diagram_Container:
         return self.organized_diagrams
     def do_clustering(self):
 #first do it for two submaps
+# The following function takes two maps of the form {(diagram_numbers): Toplogies, ... }
+# and combines them with each others! In 
         def inner_list_combiner(submap1, submap2):
             seen       = set()
             fnl_submap = {}
             for dgrm_nmr_lst1 in submap1:
-                fnl_hdrnlst = dgrm_nmr_lst1
+                fnl_hdrnlst = copy.deepcopy(dgrm_nmr_lst1)
                 for i, dgrm_nmr_lst2 in enumerate(submap2):
                     if i in seen:
                         continue
@@ -144,14 +148,14 @@ class Diagram_Container:
                 if i not in seen:
                     fnl_submap[dgrm_nmr_lst2] = submap2[dgrm_nmr_lst2]
             return fnl_submap
-# and do comparision with a single submap with iteself:
+# and do comparision with a single submap with iteself to just in case make sure, that no equal topologies appear in the same submap
         def single_map(submap):
             seen       = set()
             fnl_submap = {}
             for i1, dgrm_nmr_lst1 in enumerate(submap):
                 if i1 in seen:
                     continue
-                fnl_hdrnlst = dgrm_nmr_lst1
+                fnl_hdrnlst = copy.deepcopy(dgrm_nmr_lst1)
                 for i2, dgrm_nmr_lst2 in enumerate(submap):
                     if i2 > i1:
                         if i2 in seen:
@@ -166,13 +170,13 @@ class Diagram_Container:
             seen    = set()
             fnl_map = {}
             for cluster1 in map1:
-                fnl_cluster = map1[cluster1]
+                fnl_cluster = copy.deepcopy(map1[cluster1])
                 for i, cluster2 in enumerate(map2):
                     if i in seen:
                         continue
                     if set(cluster1) == set(cluster2):
                         seen.add(i)
-                        fnl_cluster = inner_list_combiner(map1[cluster1], map2[cluster2])
+                        fnl_cluster = copy.deepcopy(inner_list_combiner(map1[cluster1], map2[cluster2]))
                         break
                 fnl_map[cluster1] = fnl_cluster
             for i, cluster2 in enumerate(map2):
