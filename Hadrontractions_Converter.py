@@ -9,6 +9,25 @@ from datetime import datetime
 
 # Save the results of Wicktrackt into an hdf5.
 
+
+def wictrackt_to_np_extractor(dgrms_list):
+    list_of_diagrams = []
+    hadron_seen     = []
+    for diagram in dgrms_list:
+        list_of_propagators = []
+        for propagator in diagram.gpropagators():
+            hadron1, hadron2 = propagator.ghdrn1(), propagator.ghdrn2()
+            if hadron1 not in hadron_seen:
+                hadron_seen.append(hadron1)
+            if hadron2 not in hadron_seen:
+                hadron_seen.append(hadron2)
+            q1 = propagator.gbar()
+            q2 = propagator.gnbar()
+            list_of_propagators.append(
+                [[q2.gtm(), q2.ghdrn_n(), q2.gqrk_hdrn_p()], [q1.gtm(), q1.ghdrn_n(), q1.gqrk_hdrn_p()]])
+        list_of_diagrams.append([list_of_propagators, diagram.gff()])
+    return list_of_diagrams
+
 def writeresults(dgrms_list, *operators, path = None):
     ymdhms = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     path_T = f"contractions_list_{ymdhms}.hdf5"
@@ -58,21 +77,7 @@ def writeresults(dgrms_list, *operators, path = None):
                 else:
                     p_k = ' ]'
                 time_slice[t] += ''.join(H.ghdrn_t() + '('+ ''.join(q for q in H.gqrks()) + ') ' for H in A_H) + p_k
-    list_of_diagrams = []
-    hadron_seen     = []
-    for diagram in dgrms_list:
-        list_of_propagators = []
-        for propagator in diagram.gpropagators():
-            hadron1, hadron2 = propagator.ghdrn1(), propagator.ghdrn2()
-            if hadron1 not in hadron_seen:
-                hadron_seen.append(hadron1)
-            if hadron2 not in hadron_seen:
-                hadron_seen.append(hadron2)
-            q1 = propagator.gbar()
-            q2 = propagator.gnbar()
-            list_of_propagators.append(
-                [[q2.gtm(), q2.ghdrn_n(), q2.gqrk_hdrn_p()], [q1.gtm(), q1.ghdrn_n(), q1.gqrk_hdrn_p()]])
-        list_of_diagrams.append([list_of_propagators, diagram.gff()])
+    list_of_diagrams = wictrackt_to_np_extractor(dgrms_list)
     with h5py.File(path, 'w') as write_data:
         if saving_layer:
             hadron_information = write_data.create_group('Hadron_Information')
@@ -102,7 +107,7 @@ def writeresults(dgrms_list, *operators, path = None):
 
 # rewrite the results of a process into unique clusters
 # The final result of this is at least as good as the result of Wicktrackt.. but here it is more precise and analyzed! 
-def cluster_extractor(Path_Diagrams = None, result = None):
+def cluster_extractor(Path_Diagrams):
 # p is of the form     array([[1, 0, 0], [1, 1, 2]])
 # d is of the form array([[[1, 0, 0],[1, 1, 2]],
 # [[0, 1, 2], [0, 0, 0]], ...])
