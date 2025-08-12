@@ -120,7 +120,7 @@ class Diagram:
             tp1 = topologies[0]
             for topology in topologies[1:]:
                 tp1 *= topology
-            topologies = tp1
+            topologies = tp1 if isinstance(tp1, Perambulator_Container) else Perambulator_Container(tp1)
             cluster_map[tuple(clus)] = {(self.dgrmn,): topologies}
         return cluster_map
 #organized_diagrams is a list of objects of the form diagram.organize()
