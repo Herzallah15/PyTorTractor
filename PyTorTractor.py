@@ -36,7 +36,7 @@ class PyCorrTorch:
             g4                    = gamma(4, torch.complex128).to(self.device)
             gM                    = torch.matmul(g5, g4)
             self.P_SuperTensor    = P_SuperTensor.to(self.device)
-            self.P_Re_SuperTensor = torch.einsum('ij,jnlm,nk->kiml', gM, P_SuperTensor, gM).conj()
+            self.P_Re_SuperTensor = torch.einsum('ij,jnlm,nk->kiml', gM, self.P_SuperTensor, gM).conj()
             print(r'Perambulator_Tensor has been successfully constructed')
 
         # Construct now the ModeDoublet_Super_Tensor
