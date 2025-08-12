@@ -15,14 +15,14 @@ class PyCorrTorch:
         self.Path_Perambulator = Path_Perambulator
         self.Path_ModeDoublet  = Path_ModeDoublet
         self.Path_ModeTriplet  = Path_ModeTriplet
-        #To be modified
+
         self.useGPU            = useGPU
         self.device            = get_best_device(use_gpu = self.useGPU, device_id = Device_ID, verbose = True)
 
         # Construct now the Perambulator_Super_Tensor
         with h5py.File(self.Path_Perambulator, 'r') as yunus:
             yunus1        = yunus[f'/PerambulatorData/srcTime{self.SourceTime}_snkTime{self.SinkTime}']
-            N             = int(np.sqrt( yunus1['srcSpin1']['snkSpin1']['re'].shape[0]))
+            N             = int(np.sqrt(yunus1['srcSpin1']['snkSpin1']['re'].shape[0]))
             P_SuperTensor = torch.zeros((4, 4, N, N), dtype=torch.complex128)
             for i in range(4):
                 for j in range(4):
