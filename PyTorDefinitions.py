@@ -70,20 +70,29 @@ index_map = {
 
 }
 
+
 def ddir(path):
     if np.all(path == np.array([0,0,0])):
         return 'ddir0'
     else:
         raise ValueError('Displacement_CannotBe')
+
+
 def momentum(string_value):
     if string_value == 'mom_ray_000':
         return 'px0_py0_pz0'
+
+
 def hdrn_type(x):
     if x == 'meson_operators':
         return 'M'
     elif x == 'baryon_operators':
         return 'B'
 
+def srcsnk_exchanger(group):
+    snktime = group[-1]
+    srctime = group.split('_')[0][-1]
+    return f'srcTime{snktime}_snkTime{srctime}'
 
 def get_best_device(use_gpu: bool = True, device_id: Optional[int] = None, verbose: bool = True) -> torch.device:
     if not use_gpu:
@@ -108,7 +117,6 @@ def get_best_device(use_gpu: bool = True, device_id: Optional[int] = None, verbo
             print(f"Device: {device} ({gpu_count} GPU(s) available)")
             print(f"Memory: {memory_gb:.1f} GB")
         return device
-    
     if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
         try:
             test_tensor = torch.zeros(1, device='mps')
@@ -182,8 +190,10 @@ def combine_all(all_info):
 
 
 
-error01 = 'The Hadrons or Path_Wicktract or Path_Perambulator cannot be None'
-error02 = 'At least there must be a path for either Path_ModeTriplet or Path_ModeDoublet'
+
+error01 = 'The Hadrons or Path_Wicktract cannot be None'
+error1  = 'Perambulators cannot be None. They must be of the form {Light: Perambulator_dict, Strange: Perambulator_dict, Charm: Perambulator_dict}'
+error02 = 'At least there must be either ModeTriplets or ModeDoublets'
 #comment_01:
 # self.clusters_with_kies contains now the following: [((outer_key, inner_key), Topology), ....]
 # where Topology is of the form: [PC1, PC2, ...]
@@ -197,3 +207,89 @@ error02 = 'At least there must be a path for either Path_ModeTriplet or Path_Mod
 
 #comment_03:
 # exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
+
+
+def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading = False):
+    P_SuperTenspr_Dict = {}
+    seen_gropus        = set()
+    if isinstance(Path_Perambulator, str):
+        Path_All_Perambulators = [Path_Perambulator]
+    else:
+        Path_All_Perambulators = Path_Perambulator
+    for One_Path_Perambulator in Path_All_Perambulators:
+        with h5py.File(One_Path_Perambulator, 'r') as yunus:
+            yunus01 = yunus[f'/PerambulatorData']
+            for srcTime_snkTime_group in yunus01:
+                if srcTime_snkTime_group in seen_gropus and not Double_Reading:
+                    print(f'The group {srcTime_snkTime_group} appears more than one time! Add Double_Reading = True')
+                    print('or provide Path_Perambulator that contain only unique groups of srcTime_snkTime')
+                    raise ValuError('Error in reading data from Path_Perambulator')
+                else:
+                    seen_gropus.add(srcTime_snkTime_group)
+                yunus1        = yunus01[f'{srcTime_snkTime_group}']
+                N             = int(np.sqrt(yunus1['srcSpin1']['snkSpin1']['re'].shape[0]))
+                P_SuperTensor = torch.zeros((4, 4, N, N), dtype=torch.complex128)
+                for i in range(4):
+                    for j in range(4):
+                        P_SuperTensor[i, j, :, :] = torch.complex(
+                            torch.from_numpy(
+                                yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['re'][:]).reshape(N, N), 
+                            torch.from_numpy(
+                                yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N))
+                P_SuperTenspr_Dict[srcTime_snkTime_group] = P_SuperTensor.to(Device)
+            for srcTime_snkTime_group in seen_gropus:
+                ex_srcsnk = srcsnk_exchanger(srcTime_snkTime_group)
+                if ex_srcsnk not in seen_gropus:
+                    g5                            = gamma(5, torch.complex128).to(Device)
+                    g4                            = gamma(4, torch.complex128).to(Device)
+                    gM                            = torch.matmul(g5, g4)
+                    P_SuperTenspr_Dict[ex_srcsnk] = torch.einsum('ij,jnlm,nk->kiml', gM, P_SuperTenspr_Dict[srcTime_snkTime_group], gM).conj()
+    print(r'Perambulator_Tensor has been successfully constructed')
+    return P_SuperTenspr_Dict
+
+
+def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, Double_Reading = False):
+    MD_SuperTensor_Dict = {}
+    seen_gropus         = set()
+    if isinstance(Path_ModeDoublet, str):
+        Path_All_ModeDoublet = [Path_ModeDoublet]
+    else:
+        Path_All_ModeDoublet = Path_ModeDoublet
+    for One_Path_ModeDoublet in Path_All_ModeDoublet:
+        with h5py.File(One_Path_ModeDoublet, 'r') as yunus:
+            yunus1         = yunus['/ModeDoubletData']
+            for i, group in enumerate(yunus1):
+                if i == 0:
+                    N = int(np.sqrt(yunus1[group]['re'][:].shape[0]))
+                if group in seen_gropus and not Double_Reading:
+                    print(f'The group {group} appears more than one time! Add Double_Reading = True')
+                    print('or provide Path_ModeDoublet that contain only unique groups of groups')
+                    raise ValuError('Error in reading data from Path_ModeDoublet')
+                MD_SuperTensor_Dict[group] = torch.complex(
+                    torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
+                    torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=torch.complex128).to(Device)
+    print(r'MD_Tensor has been successfully constructed')
+    return MD_SuperTensor_Dict
+
+def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, Double_Reading = False):
+    MT_SuperTensor_Dict = {}
+    seen_gropus         = set()
+    if isinstance(Path_ModeTriplet, str):
+        Path_All_ModeTriplet = [Path_ModeTriplet]
+    else:
+        Path_All_ModeTriplet = Path_ModeTriplet
+    for One_Path_ModeTriplet in Path_All_ModeTriplet:
+        with h5py.File(One_Path_ModeTriplet, 'r') as yunus:
+            yunus1         = yunus['/ModeTripletData']
+            for i, group in enumerate(yunus1):
+                if i == 0:
+                    N = int(np.cbrt(yunus1[group]['re'][:].shape[0]))
+                if group in seen_gropus and not Double_Reading:
+                    print(f'The group {group} appears more than one time! Add Double_Reading = True')
+                    print('or provide Path_ModeTriplet that contain only unique groups of groups')
+                    raise ValuError('Error in reading data from Path_ModeTriplet')
+                MT_SuperTensor_Dict[group] = torch.complex(
+                    torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
+                    torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=torch.complex128).to(Device)
+    print(r'MT_Tensor has been successfully constructed')
+    return MT_SuperTensor_Dict
