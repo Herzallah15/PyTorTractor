@@ -9,10 +9,29 @@ from datetime import datetime
 
 # Save the results of Wicktrackt into an hdf5.
 
+def flavor_specifier(flavor):
+    if flavor in ['u', 'd', 'uB', 'dB', 'YB']:
+        return [7,7,7]#Light
+    elif flavor in ['s', 'sB']:
+        return [8,8,8]#Strange
+    elif flavor in ['c', 'cB']:
+        return [9,9,9]#Charm
+    else:
+        raise ValueError('Error in extracting quark flavor for wictrackt_to_np_extractor')
+def Perambulator_Flavor(flavor):
+    if np.all(flavor == np.array([7,7,7])):
+        return 'Light'
+    elif np.all(flavor == np.array([8,8,8])):
+        return 'Strange'
+    elif np.all(flavor == np.array([9,9,9])):
+        return 'Charm'
+    else:
+        raise ValueError('Error in extracting quark flavor for wictrackt_to_np_extractor') 
 
 def wictrackt_to_np_extractor(dgrms_list):
     list_of_diagrams = []
-    hadron_seen     = []
+    hadron_seen      = []
+    quark_seen       = set()
     for diagram in dgrms_list:
         list_of_propagators = []
         for propagator in diagram.gpropagators():
@@ -21,10 +40,12 @@ def wictrackt_to_np_extractor(dgrms_list):
                 hadron_seen.append(hadron1)
             if hadron2 not in hadron_seen:
                 hadron_seen.append(hadron2)
-            q1 = propagator.gbar()
-            q2 = propagator.gnbar()
-            list_of_propagators.append(
-                [[q2.gtm(), q2.ghdrn_n(), q2.gqrk_hdrn_p()], [q1.gtm(), q1.ghdrn_n(), q1.gqrk_hdrn_p()]])
+            q1     = propagator.gbar()
+            q2     = propagator.gnbar()
+            flavor = flavor_specifier(propagator.gnbar().gflvr())
+            Q_NB   = [q2.gtm(), q2.ghdrn_n(), q2.gqrk_hdrn_p()]
+            Q_B    = [q1.gtm(), q1.ghdrn_n(), q1.gqrk_hdrn_p()]
+            list_of_propagators.append([Q_NB, Q_B, flavor])
         list_of_diagrams.append([list_of_propagators, diagram.gff()])
     return list_of_diagrams
 
@@ -108,13 +129,14 @@ def writeresults(dgrms_list, *operators, path = None):
 # rewrite the results of a process into unique clusters
 # The final result of this is at least as good as the result of Wicktrackt.. but here it is more precise and analyzed! 
 def cluster_extractor(Path_Diagrams):
-# p is of the form     array([[1, 0, 0], [1, 1, 2]])
+# p is of the form     array([[1, 0, 0], [1, 1, 2], [7,7,7]]), i.e. [Q_NB, Q_B, flavor]
 # d is of the form array([[[1, 0, 0],[1, 1, 2]],
 # [[0, 1, 2], [0, 0, 0]], ...])
     def perambulator_extractor(p):
         Q, Q_Bar = p[0], p[1]
         H, H_Bar = Q[:2], Q_Bar[:2]
-        return Perambulator(Q, Q_Bar, H, H_Bar)
+        Flavor   = Perambulator_Flavor(p[2])
+        return Perambulator(Q, Q_Bar, H, H_Bar, Flavor)
     def diagram_extractor(dgrmn, d):
         perambulators = []
         for p in d:

@@ -3,68 +3,19 @@ from PyTorDefinitions import *
 class PyCorrTorch:
     def __init__(self, SinkTime = None, SourceTime = None, 
                  Hadrons = None, Path_Wicktract = None, 
-                 Path_Perambulator = None, Path_ModeDoublet = None, Path_ModeTriplet = None, useGPU = True, Device_ID = None):
-        if None in (SinkTime, SourceTime, Hadrons, Path_Wicktract, Path_Perambulator):
-            raise ValueError(error01)
-        if (Path_ModeDoublet is None) and (Path_ModeTriplet is None):
-            raise ValueError(error02)
+                 #Path_Perambulator = None, Path_ModeDoublet = None, Path_ModeTriplet = None, useGPU = True, Device_ID = None
+                ):
+        #if None in (SinkTime, SourceTime, Hadrons, Path_Wicktract, Path_Perambulator):
+        #    raise ValueError(error01)
+        #if (Path_ModeDoublet is None) and (Path_ModeTriplet is None):
+        #    raise ValueError(error02)
         self.SinkTime          = SinkTime
         self.SourceTime        = SourceTime
         self.Hadrons           = Hadrons
         self.Path_Wicktract    = Path_Wicktract
-        self.Path_Perambulator = Path_Perambulator
-        self.Path_ModeDoublet  = Path_ModeDoublet
-        self.Path_ModeTriplet  = Path_ModeTriplet
 
-        self.useGPU            = useGPU
-        self.device            = get_best_device(use_gpu = self.useGPU, device_id = Device_ID, verbose = True)
 
-        # Construct now the Perambulator_Super_Tensor
-        with h5py.File(self.Path_Perambulator, 'r') as yunus:
-            yunus1        = yunus[f'/PerambulatorData/srcTime{self.SourceTime}_snkTime{self.SinkTime}']
-            N             = int(np.sqrt(yunus1['srcSpin1']['snkSpin1']['re'].shape[0]))
-            P_SuperTensor = torch.zeros((4, 4, N, N), dtype=torch.complex128)
-            for i in range(4):
-                for j in range(4):
-                    P_SuperTensor[i, j, :, :] = torch.complex(
-                        torch.from_numpy(
-                            yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['re'][:]).reshape(N, N), 
-                        torch.from_numpy(
-                            yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N))
-            #P^{s_{snk} s_{src} snkevn srcevn}
-            g5                    = gamma(5, torch.complex128).to(self.device)
-            g4                    = gamma(4, torch.complex128).to(self.device)
-            gM                    = torch.matmul(g5, g4)
-            self.P_SuperTensor    = P_SuperTensor.to(self.device)
-            self.P_Re_SuperTensor = torch.einsum('ij,jnlm,nk->kiml', gM, self.P_SuperTensor, gM).conj()
-            print(r'Perambulator_Tensor has been successfully constructed')
-
-        # Construct now the ModeDoublet_Super_Tensor
-        if self.Path_ModeDoublet is not None:
-            with h5py.File(self.Path_ModeDoublet, 'r') as yunus:
-                yunus1         = yunus['/ModeDoubletData']
-                MD_SuperTensor = {}
-                for group in yunus1:
-                    MD_SuperTensor[group] = torch.complex(
-                        torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=torch.complex128).to(self.device)
-                #G^{i j}
-            self.MD_SuperTensor = MD_SuperTensor
-            print(r'MD_Tensor has been successfully constructed')
-
-        # Construct now the ModeTriplet_Super_Tensor
-        if self.Path_ModeTriplet is not None:
-            with h5py.File(self.Path_ModeTriplet, 'r') as yunus:
-                yunus1         = yunus['/ModeTripletData']
-                MT_SuperTensor = {}
-                for group in yunus1:
-                    MT_SuperTensor[group] = torch.complex(
-                        torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=torch.complex128).to(self.device)
-                #G^{i j}
-            self.MT_SuperTensor = MT_SuperTensor
-            print(r'MT_Tensor has been successfully constructed')
-
+        # part which is commented out. Called PART_OUTCOMMENT_0
         # Cluster the Diagrams
         self.clusters, self.WT_numerical_factors = cluster_extractor(Path_Diagrams = self.Path_Wicktract)
 
@@ -88,9 +39,15 @@ class PyCorrTorch:
                                for inner_key, prpm_container in inner_dict.items()]
 
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
-#commet_01
-    def TorchTractor(self):
-#comment_02
+
+    #commet_01
+    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
+        if (All_Perambulators is None):
+            raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
+        if (ModeDoublets is None) and (ModeTriplets is None):
+            er = 'TorchTractor must take as argument at least a ModeDoublet or a ModeTriplet.'
+            raise ValueError(f'{er} one or both of the following arguments are missing: ModeDoublets = ..., ModeTriplets = ... ')
+
         def Modes_Setup(outer_cluster, exp_prmp_container):
             dis_paths = {}
             for prp in exp_prmp_container:
@@ -109,19 +66,19 @@ class PyCorrTorch:
                 path          = mntm + '_' + disp + '_' + time
                 if hadron[0] == 0:
                     if self.hadron_type_mom_map[hadron]['T'] == 'M':
-                        Mode_Tensors.append(self.MD_SuperTensor[path].conj())
+                        Mode_Tensors.append(ModeDoublets[path].conj())
                     elif self.hadron_type_mom_map[hadron]['T'] == 'B':
-                        Mode_Tensors.append(self.MT_SuperTensor[path].conj())
+                        Mode_Tensors.append(ModeTriplets[path].conj())
                         Mode_Indices += index_map[hadron + (2,)]
                 elif hadron[0] == 1:
                     if self.hadron_type_mom_map[hadron]['T'] == 'M':
-                        Mode_Tensors.append(self.MD_SuperTensor[path])
+                        Mode_Tensors.append(ModeDoublets[path])
                     elif self.hadron_type_mom_map[hadron]['T'] == 'B':
-                        Mode_Tensors.append(self.MT_SuperTensor[path])
+                        Mode_Tensors.append(ModeTriplets[path])
                         Mode_Indices += index_map[hadron + (2,)]
                 Mode_Indices = Mode_Indices + ','
             return {'index': Mode_Indices, 'Tensor': Mode_Tensors}
-#comment_03
+        #comment_02
         def Perambulator_Setup(exp_prmp_container):
             Prmp_Indices = ''
             Prmp_Tensors = []
@@ -130,12 +87,21 @@ class PyCorrTorch:
                 Prmp_Indices += index_map[perambulator.getQ_Bar()]
                 s             = perambulator.getS() - 1
                 s_Bar         = perambulator.getS_Bar() - 1
-                if (perambulator.getH()[0] == 0) and (perambulator.getH_Bar()[0] == 1):
-                    Prmp_Tensors.append(self.P_Re_SuperTensor[s, s_Bar, :, :])
-                elif (perambulator.getH()[0] == 1) and (perambulator.getH_Bar()[0] == 0):
-                    Prmp_Tensors.append( (self.P_SuperTensor[s, s_Bar, :, :] * perambulator.getFF()) )
-                elif perambulator.getH()[0] == perambulator.getH_Bar()[0]:
-                    Prmp_Tensors.append( (self.P_SuperTensor[s, s_Bar, :, :] * perambulator.getFF()) )
+                p_left        = perambulator.getH()[0]
+                p_right       = perambulator.getH_Bar()[0]
+                prmp_flavor   = perambulator.getFlavor()
+                num_factor    = perambulator.getFF()
+                if p_left   == 1 and p_right == 0:
+                    time    = f'srcTime{self.SourceTime}_snkTime{self.SinkTime}'
+                elif p_left == 0 and p_right == 1:
+                    time    = f'srcTime{self.SinkTime}_snkTime{self.SourceTime}'
+                elif p_left == 1 and p_right == 1:
+                    time    = f'srcTime{self.SinkTime}_snkTime{self.SinkTime}'
+                elif p_left == 0 and p_right == 0:
+                    time    = f'srcTime{self.SourceTime}_snkTime{self.SourceTime}'
+                else:
+                    raise ValueError('Error in extracting perambulators from the Perambulator_Tensor_Dict')
+                Prmp_Tensors.append((All_Perambulators[prmp_flavor][time][s, s_Bar, :, :] * num_factor))
             return {'index': Prmp_Indices, 'Tensor': Prmp_Tensors}
         clusters_with_kies_copy = []
         for full_cluster in self.clusters_with_kies:

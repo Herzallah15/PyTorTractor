@@ -107,7 +107,8 @@ class ExplicitPerambulator:
         ff1 = self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item()
         ff2 = self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item()
         return ff1 * ff2
-
+    def getFlavor(self):
+        return self.getPerambulator().getFlvr()
 
 
 class ExplicitPerambulator_Container_OneComb:

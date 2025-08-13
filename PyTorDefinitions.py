@@ -194,19 +194,6 @@ def combine_all(all_info):
 error01 = 'The Hadrons or Path_Wicktract cannot be None'
 error1  = 'Perambulators cannot be None. They must be of the form {Light: Perambulator_dict, Strange: Perambulator_dict, Charm: Perambulator_dict}'
 error02 = 'At least there must be either ModeTriplets or ModeDoublets'
-#comment_01:
-# self.clusters_with_kies contains now the following: [((outer_key, inner_key), Topology), ....]
-# where Topology is of the form: [PC1, PC2, ...]
-# where PCi = [Explicit_Perambulator1, Explicit_Perambulator2,...]
-# and in Toplogy after contracting each PCi with the corresponding Tensor all results need to be summed with each others!
-# I.e. Topology is actually sum(PCi)
-
-#comment_02:
-# outer cluster is somethong of the form: ((0, 1), (0, 0), (1, 0), (1, 1))
-# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
-
-#comment_03:
-# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
 
 
 def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading = False):
@@ -223,7 +210,7 @@ def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading =
                 if srcTime_snkTime_group in seen_gropus and not Double_Reading:
                     print(f'The group {srcTime_snkTime_group} appears more than one time! Add Double_Reading = True')
                     print('or provide Path_Perambulator that contain only unique groups of srcTime_snkTime')
-                    raise ValuError('Error in reading data from Path_Perambulator')
+                    raise ValueError('Error in reading data from Path_Perambulator')
                 else:
                     seen_gropus.add(srcTime_snkTime_group)
                 yunus1        = yunus01[f'{srcTime_snkTime_group}']
@@ -257,6 +244,8 @@ def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, Double_Reading = Fals
         Path_All_ModeDoublet = Path_ModeDoublet
     for One_Path_ModeDoublet in Path_All_ModeDoublet:
         with h5py.File(One_Path_ModeDoublet, 'r') as yunus:
+            for i in yunus:
+                print('group: ', i)
             yunus1         = yunus['/ModeDoubletData']
             for i, group in enumerate(yunus1):
                 if i == 0:
@@ -264,7 +253,7 @@ def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, Double_Reading = Fals
                 if group in seen_gropus and not Double_Reading:
                     print(f'The group {group} appears more than one time! Add Double_Reading = True')
                     print('or provide Path_ModeDoublet that contain only unique groups of groups')
-                    raise ValuError('Error in reading data from Path_ModeDoublet')
+                    raise ValueError('Error in reading data from Path_ModeDoublet')
                 MD_SuperTensor_Dict[group] = torch.complex(
                     torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
                     torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=torch.complex128).to(Device)
@@ -287,9 +276,85 @@ def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, Double_Reading = Fals
                 if group in seen_gropus and not Double_Reading:
                     print(f'The group {group} appears more than one time! Add Double_Reading = True')
                     print('or provide Path_ModeTriplet that contain only unique groups of groups')
-                    raise ValuError('Error in reading data from Path_ModeTriplet')
+                    raise ValueError('Error in reading data from Path_ModeTriplet')
                 MT_SuperTensor_Dict[group] = torch.complex(
                     torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
                     torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=torch.complex128).to(Device)
     print(r'MT_Tensor has been successfully constructed')
     return MT_SuperTensor_Dict
+
+
+
+
+
+
+
+
+#comment_01:
+# self.clusters_with_kies contains now the following: [((outer_key, inner_key), Topology), ....]
+# where Topology is of the form: [PC1, PC2, ...]
+# where PCi = [Explicit_Perambulator1, Explicit_Perambulator2,...]
+# and in Toplogy after contracting each PCi with the corresponding Tensor all results need to be summed with each others!
+# I.e. Topology is actually sum(PCi)
+# outer cluster is somethong of the form: ((0, 1), (0, 0), (1, 0), (1, 1))
+# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
+# Perambulators is of the form {'Light': Perambulator_dict, 'Strange': Perambulator_dict, 'Charm': Perambulator_dict}
+
+#comment_02:
+# exp_prmp_container is of the form [ExplicitPerambulator, ExplicitPerambulator, ...]
+
+#PART_OUTCOMMENT_0
+        #self.Path_Wicktract    = Path_Wicktract
+        #self.Path_Perambulator = Path_Perambulator
+        #self.Path_ModeDoublet  = Path_ModeDoublet
+        #self.Path_ModeTriplet  = Path_ModeTriplet
+
+
+        #self.useGPU            = useGPU
+        #self.device            = get_best_device(use_gpu = self.useGPU, device_id = Device_ID, verbose = True)
+        # Construct now the Perambulator_Super_Tensor
+        #with h5py.File(self.Path_Perambulator, 'r') as yunus:
+        #    yunus1        = yunus[f'/PerambulatorData/srcTime{self.SourceTime}_snkTime{self.SinkTime}']
+        #    N             = int(np.sqrt(yunus1['srcSpin1']['snkSpin1']['re'].shape[0]))
+        #    P_SuperTensor = torch.zeros((4, 4, N, N), dtype=torch.complex128)
+        #    for i in range(4):
+        #        for j in range(4):
+        #            P_SuperTensor[i, j, :, :] = torch.complex(
+        #                torch.from_numpy(
+        #                    yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['re'][:]).reshape(N, N), 
+        #                torch.from_numpy(
+        #                    yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N))
+        #    #P^{s_{snk} s_{src} snkevn srcevn}
+        #    g5                    = gamma(5, torch.complex128).to(self.device)
+        #    g4                    = gamma(4, torch.complex128).to(self.device)
+        #    gM                    = torch.matmul(g5, g4)
+        #    self.P_SuperTensor    = P_SuperTensor.to(self.device)
+        #    self.P_Re_SuperTensor = torch.einsum('ij,jnlm,nk->kiml', gM, self.P_SuperTensor, gM).conj()
+        #    print(r'Perambulator_Tensor has been successfully constructed')
+
+        #   # Construct now the ModeDoublet_Super_Tensor
+        #if self.Path_ModeDoublet is not None:
+        #    with h5py.File(self.Path_ModeDoublet, 'r') as yunus:
+        #        yunus1         = yunus['/ModeDoubletData']
+        #        MD_SuperTensor = {}
+        #        for group in yunus1:
+        #            MD_SuperTensor[group] = torch.complex(
+        #                torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
+        #                torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=torch.complex128).to(self.device)
+        #        #G^{i j}
+        #    self.MD_SuperTensor = MD_SuperTensor
+        #    print(r'MD_Tensor has been successfully constructed')
+
+        #   # Construct now the ModeTriplet_Super_Tensor
+        #if self.Path_ModeTriplet is not None:
+        #    with h5py.File(self.Path_ModeTriplet, 'r') as yunus:
+        #        yunus1         = yunus['/ModeTripletData']
+        #        MT_SuperTensor = {}
+        #        for group in yunus1:
+        #            MT_SuperTensor[group] = torch.complex(
+        #                torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
+        #                torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=torch.complex128).to(self.device)
+        #        #G^{i j}
+        #    self.MT_SuperTensor = MT_SuperTensor
+        #    print(r'MT_Tensor has been successfully constructed')
+

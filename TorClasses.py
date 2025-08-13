@@ -5,11 +5,12 @@ import h5py
 import copy
 #In this context I plan to have Q of the form np.array([1,0,0]) and H of the form np.array([1,0])
 class Perambulator:
-    def __init__(self, Q, Q_Bar, H, H_Bar):
-        self.Q     = Q
-        self.Q_Bar = Q_Bar
-        self.H     = H
-        self.H_Bar = H_Bar
+    def __init__(self, Q, Q_Bar, H, H_Bar, Flavor):
+        self.Q      = Q
+        self.Q_Bar  = Q_Bar
+        self.H      = H
+        self.H_Bar  = H_Bar
+        self.Flavor = Flavor
     def getQ(self):
         return self.Q
     def getQ_Bar(self):
@@ -18,6 +19,8 @@ class Perambulator:
         return self.H
     def getH_Bar(self):
         return self.H_Bar
+    def getFlvr(self):
+        return self.Flavor
     def show(self):
         return np.array([self.getQ(), self.getQ_Bar()])
     def getPartners(self):
