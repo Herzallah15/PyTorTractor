@@ -244,8 +244,6 @@ def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, Double_Reading = Fals
         Path_All_ModeDoublet = Path_ModeDoublet
     for One_Path_ModeDoublet in Path_All_ModeDoublet:
         with h5py.File(One_Path_ModeDoublet, 'r') as yunus:
-            for i in yunus:
-                print('group: ', i)
             yunus1         = yunus['/ModeDoubletData']
             for i, group in enumerate(yunus1):
                 if i == 0:
