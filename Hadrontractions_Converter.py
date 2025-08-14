@@ -10,7 +10,7 @@ from datetime import datetime
 # Save the results of Wicktrackt into an hdf5.
 
 def flavor_specifier(flavor):
-    if flavor in ['u', 'd', 'uB', 'dB', 'YB']:
+    if flavor in ['u', 'd', 'uB', 'dB', 'Y', 'YB']:
         return [7,7,7]#Light
     elif flavor in ['s', 'sB']:
         return [8,8,8]#Strange
