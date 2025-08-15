@@ -44,9 +44,6 @@ index_map = {
     (0,2,1): 'q',
     (0,2,2): 'r',
 
-    (0,2,0): 'P',
-    (0,2,1): 'Q',
-    (0,2,2): 'R',
 
     (2,0,0): 's',
     (2,0,1): 't',
@@ -90,8 +87,9 @@ def hdrn_type(x):
         return 'B'
 
 def srcsnk_exchanger(group):
-    snktime = group[-1]
-    srctime = group.split('_')[0][-1]
+    parts = group.split('_')
+    srctime = parts[0].replace('srcTime', '')
+    snktime = parts[1].replace('snkTime', '')
     return f'srcTime{snktime}_snkTime{srctime}'
 
 def get_best_device(use_gpu: bool = True, device_id: Optional[int] = None, verbose: bool = True) -> torch.device:
@@ -206,7 +204,7 @@ def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading =
     for One_Path_Perambulator in Path_All_Perambulators:
         with h5py.File(One_Path_Perambulator, 'r') as yunus:
             yunus01 = yunus[f'/PerambulatorData']
-            for srcTime_snkTime_group in yunus01:
+            for t_c, srcTime_snkTime_group in enumerate(yunus01):
                 if srcTime_snkTime_group in seen_gropus and not Double_Reading:
                     print(f'The group {srcTime_snkTime_group} appears more than one time! Add Double_Reading = True')
                     print('or provide Path_Perambulator that contain only unique groups of srcTime_snkTime')
@@ -214,15 +212,31 @@ def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading =
                 else:
                     seen_gropus.add(srcTime_snkTime_group)
                 yunus1        = yunus01[f'{srcTime_snkTime_group}']
-                N             = int(np.sqrt(yunus1['srcSpin1']['snkSpin1']['re'].shape[0]))
+                if t_c == 0:
+                    if yunus1['srcSpin1']['snkSpin1']['re'].ndim == 1:
+                        N             = int(np.sqrt(yunus1['srcSpin1']['snkSpin1']['re'].shape[0]))
+                        resp          = True
+                        print('will be reshaped')
+                    elif yunus1['srcSpin1']['snkSpin1']['re'].ndim == 2:
+                        N             = yunus1['srcSpin1']['snkSpin1']['re'].shape[0]
+                        resp          = False
+                    else:
+                        raise ValueError('Failed to read Perambulators!')
                 P_SuperTensor = torch.zeros((4, 4, N, N), dtype=torch.complex128)
                 for i in range(4):
                     for j in range(4):
-                        P_SuperTensor[i, j, :, :] = torch.complex(
-                            torch.from_numpy(
-                                yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['re'][:]).reshape(N, N), 
-                            torch.from_numpy(
-                                yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N))
+                        if resp:
+                            P_SuperTensor[i, j, :, :] = torch.complex(
+                                torch.from_numpy(
+                                    yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['re'][:]).reshape(N, N), 
+                                torch.from_numpy(
+                                    yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(N, N))
+                        else:
+                            P_SuperTensor[i, j, :, :] = torch.complex(
+                                torch.from_numpy(
+                                    yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['re'][:]), 
+                                torch.from_numpy(
+                                    yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]))     
                 P_SuperTenspr_Dict[srcTime_snkTime_group] = P_SuperTensor.to(Device)
             for srcTime_snkTime_group in seen_gropus:
                 ex_srcsnk = srcsnk_exchanger(srcTime_snkTime_group)
@@ -231,6 +245,7 @@ def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading =
                     g4                            = gamma(4, torch.complex128).to(Device)
                     gM                            = torch.matmul(g5, g4)
                     P_SuperTenspr_Dict[ex_srcsnk] = torch.einsum('ij,jnlm,nk->kiml', gM, P_SuperTenspr_Dict[srcTime_snkTime_group], gM).conj()
+                    print(f' Perambulator for {ex_srcsnk} has been constructed using infos about {srcTime_snkTime_group}!')
     print(r'Perambulator_Tensor has been successfully constructed')
     return P_SuperTenspr_Dict
 
@@ -247,14 +262,27 @@ def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, Double_Reading = Fals
             yunus1         = yunus['/ModeDoubletData']
             for i, group in enumerate(yunus1):
                 if i == 0:
-                    N = int(np.sqrt(yunus1[group]['re'][:].shape[0]))
+                    if yunus1[group]['re'].ndim == 1:
+                        N    = int(np.sqrt(yunus1[group]['re'][:].shape[0]))
+                        resp = True
+                        print('will be reshaped')
+                    elif yunus1[group]['re'].ndim == 2:
+                        N    = yunus1[group]['re'][:].shape[0]
+                        resp = False
+                    else:
+                        raise ValueError('Failed to read the ModeDoublets')
                 if group in seen_gropus and not Double_Reading:
                     print(f'The group {group} appears more than one time! Add Double_Reading = True')
                     print('or provide Path_ModeDoublet that contain only unique groups of groups')
                     raise ValueError('Error in reading data from Path_ModeDoublet')
-                MD_SuperTensor_Dict[group] = torch.complex(
-                    torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
-                    torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=torch.complex128).to(Device)
+                if resp:
+                    MD_SuperTensor_Dict[group] = torch.complex(
+                        torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
+                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=torch.complex128).to(Device)
+                else:
+                    MD_SuperTensor_Dict[group] = torch.complex(
+                        torch.from_numpy(yunus1[group]['re'][:]),
+                        torch.from_numpy(yunus1[group]['im'][:])).to(dtype=torch.complex128).to(Device)              
     print(r'MD_Tensor has been successfully constructed')
     return MD_SuperTensor_Dict
 
@@ -270,14 +298,27 @@ def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, Double_Reading = Fals
             yunus1         = yunus['/ModeTripletData']
             for i, group in enumerate(yunus1):
                 if i == 0:
-                    N = int(np.cbrt(yunus1[group]['re'][:].shape[0]))
+                    if yunus1[group]['re'].ndim == 1:
+                        N    = int(np.cbrt(yunus1[group]['re'][:].shape[0]))
+                        resp = True
+                        print('will be reshaped')
+                    elif yunus1[group]['re'].ndim == 3:
+                        N    = yunus1[group]['re'][:].shape[0]
+                        resp = False
+                    else:
+                        raise ValueError('Failed to read the ModeDoublets')
                 if group in seen_gropus and not Double_Reading:
                     print(f'The group {group} appears more than one time! Add Double_Reading = True')
                     print('or provide Path_ModeTriplet that contain only unique groups of groups')
                     raise ValueError('Error in reading data from Path_ModeTriplet')
-                MT_SuperTensor_Dict[group] = torch.complex(
-                    torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
-                    torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=torch.complex128).to(Device)
+                if resp:
+                    MT_SuperTensor_Dict[group] = torch.complex(
+                        torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
+                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=torch.complex128).to(Device)
+                else:
+                    MT_SuperTensor_Dict[group] = torch.complex(
+                        torch.from_numpy(yunus1[group]['re'][:]),
+                        torch.from_numpy(yunus1[group]['im'][:])).to(dtype=torch.complex128).to(Device)     
     print(r'MT_Tensor has been successfully constructed')
     return MT_SuperTensor_Dict
 

@@ -104,8 +104,19 @@ class ExplicitPerambulator:
     def getDis_Bar(self):
         return self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['dis']
     def getFF(self):
-        ff1 = self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item()
-        ff2 = self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item()
+        if self.getH()[0] == 0:
+            ff1 = self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item().conjugate()
+        elif self.getH()[0] == 1:
+            ff1 = self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item()
+        else:
+            raise ValueError('A hadron can be either on sink 1 or source 0')
+
+        if self.getH_Bar()[0] == 0:
+            ff2 = self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item().conjugate()
+        elif self.getH_Bar()[0] == 1:
+            ff2 = self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item()
+        else:
+            raise ValueError('A hadron can be either on sink 1 or source 0')
         return ff1 * ff2
     def getFlavor(self):
         return self.getPerambulator().getFlvr()
