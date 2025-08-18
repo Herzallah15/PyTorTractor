@@ -2,13 +2,7 @@ from PyTorDefinitions import *
 
 class PyCorrTorch:
     def __init__(self, SinkTime = None, SourceTime = None, 
-                 Hadrons = None, Path_Wicktract = None, 
-                 #Path_Perambulator = None, Path_ModeDoublet = None, Path_ModeTriplet = None, useGPU = True, Device_ID = None
-                ):
-        #if None in (SinkTime, SourceTime, Hadrons, Path_Wicktract, Path_Perambulator):
-        #    raise ValueError(error01)
-        #if (Path_ModeDoublet is None) and (Path_ModeTriplet is None):
-        #    raise ValueError(error02)
+                 Hadrons = None, Path_Wicktract = None):
         self.SinkTime          = SinkTime
         self.SourceTime        = SourceTime
         self.Hadrons           = Hadrons
@@ -24,7 +18,6 @@ class PyCorrTorch:
         for hdrn in self.Hadrons:
             hadron_type_mom_map[hdrn.getHadron_Position()] = {'T': hdrn_type(hdrn.getHadron_Type()), 'P': momentum(hdrn.getMomentum())}
         self.hadron_type_mom_map = hadron_type_mom_map
-        #print('self.hadron_type_mom_map: ', self.hadron_type_mom_map)
         
 
 
@@ -56,7 +49,6 @@ class PyCorrTorch:
                     dis_paths[prp.getH()] = ddir(prp.getDis())
                 if prp.getH_Bar() not in dis_paths:
                     dis_paths[prp.getH_Bar()] = ddir(prp.getDis_Bar())
-            #print('dis_paths: ', dis_paths)
             Mode_Indices = ''
             Mode_Tensors = []
             for hadron in outer_cluster:
@@ -67,7 +59,6 @@ class PyCorrTorch:
                 if hadron[0] == 0:
                     time          = 't'+str(self.SourceTime)
                     path          = mntm + '_' + disp + '_' + time
-                    #print(path)
                     if self.hadron_type_mom_map[hadron]['T'] == 'M':
                         Mode_Tensors.append(ModeDoublets[path].conj())
                     elif self.hadron_type_mom_map[hadron]['T'] == 'B':
@@ -76,7 +67,6 @@ class PyCorrTorch:
                 elif hadron[0] == 1:
                     time          = 't'+str(self.SinkTime)
                     path          = mntm + '_' + disp + '_' + time
-                    #print(path)
                     if self.hadron_type_mom_map[hadron]['T'] == 'M':
                         Mode_Tensors.append(ModeDoublets[path])
                     elif self.hadron_type_mom_map[hadron]['T'] == 'B':
@@ -98,26 +88,18 @@ class PyCorrTorch:
                 p_left        = perambulator.getH()[0]
                 p_right       = perambulator.getH_Bar()[0]
                 prmp_flavor   = perambulator.getFlavor()
-                #print('prmp_flavor: ', prmp_flavor)
                 num_factor    = perambulator.getFF()
-                #print('num_factor: ', num_factor)
-                #print('num_factor: ', num_factor)
                 if p_left   == 1 and p_right == 0:
                     time    = f'srcTime{self.SourceTime}_snkTime{self.SinkTime}'
-                    #print('time = ', time)
                 elif p_left == 0 and p_right == 1:
                     time    = f'srcTime{self.SinkTime}_snkTime{self.SourceTime}'
-                    #print('time = ', time)
                 elif p_left == 1 and p_right == 1:
                     time    = f'srcTime{self.SinkTime}_snkTime{self.SinkTime}'
-                    #print('time = ', time)
                 elif p_left == 0 and p_right == 0:
                     time    = f'srcTime{self.SourceTime}_snkTime{self.SourceTime}'
-                    #print('time = ', time)
                 else:
                     raise ValueError('Error in extracting perambulators from the Perambulator_Tensor_Dict')
                 Prmp_Tensors.append((All_Perambulators[prmp_flavor][time][s, s_Bar, :, :] * num_factor))
-            #print('index: ', Prmp_Indices, 'Tensor: ', Prmp_Tensors)
             return {'index': Prmp_Indices, 'Tensor': Prmp_Tensors}
         clusters_with_kies_copy = []
         for full_cluster in self.clusters_with_kies:
@@ -133,11 +115,15 @@ class PyCorrTorch:
                 if peram_info['index'] != prmp_indizes:
                     raise ValueError('Something wrong with Perambulator_Extractor')
                 prmp_list.append(peram_info['Tensor'])
-            Perambulators = torch.stack([Tensor_Product(Qs) for Qs in prmp_list], dim=0)
-            #print('modes_indices: ',modes_indices)
-            #print('prmp_indizes: ', prmp_indizes)
-            results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', *modes_tensors, Perambulators)
-            #print('results: ', results)
+            try:
+                Perambulators = torch.stack([Tensor_Product(Qs) for Qs in prmp_list], dim=0)
+                results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', *modes_tensors, Perambulators)
+            except RuntimeError as e:
+                if "Invalid buffer size" in str(e):
+                    print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error: {e}")
+                    continue
+                else:
+                    raise
             results      = torch.sum(results, dim=0)
             clusters_with_kies_copy.append((full_cluster[0], results))
         return clusters_with_kies_copy, self.WT_numerical_factors
