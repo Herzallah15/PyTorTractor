@@ -118,12 +118,11 @@ class PyCorrTorch:
             try:
                 Perambulators = torch.stack([Tensor_Product(Qs) for Qs in prmp_list], dim=0)
                 results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', *modes_tensors, Perambulators)
-            except RuntimeError as e:
-                if "Invalid buffer size" in str(e):
-                    print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error: {e}")
-                    continue
-                else:
-                    raise
+            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as e:
+                print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error:")
+                print(e)
+                print('__________')
+                continue
             results      = torch.sum(results, dim=0)
             clusters_with_kies_copy.append((full_cluster[0], results))
         return clusters_with_kies_copy, self.WT_numerical_factors
