@@ -102,6 +102,8 @@ class PyCorrTorch:
                 Prmp_Tensors.append((All_Perambulators[prmp_flavor][time][s, s_Bar, :, :] * num_factor))
             return {'index': Prmp_Indices, 'Tensor': Prmp_Tensors}
         clusters_with_kies_copy = []
+        print(f'{len(self.clusters_with_kies)} tensor contractions to be performed')
+        cntrctns_cntr = 0
         for full_cluster in self.clusters_with_kies:
             modes_info    = Modes_Setup(full_cluster[0][0], full_cluster[1][0])
             modes_indices = modes_info['index'][:-1]
@@ -110,6 +112,7 @@ class PyCorrTorch:
             extractor     = Perambulator_Setup(full_cluster[1][0])
             prmp_indizes  = extractor['index']
             prmp_list.append(extractor['Tensor'])
+            torchsum = True
             for prmp_container in full_cluster[1][1:]:
                 peram_info = Perambulator_Setup(prmp_container)
                 if peram_info['index'] != prmp_indizes:
@@ -119,10 +122,21 @@ class PyCorrTorch:
                 Perambulators = torch.stack([Tensor_Product(Qs) for Qs in prmp_list], dim=0)
                 results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', *modes_tensors, Perambulators)
             except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as e:
-                print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error:")
-                print(e)
-                print('__________')
-                continue
-            results      = torch.sum(results, dim=0)
+                prmp_indizes_updated = ",".join(prmp_indizes[i:i+2] for i in range(0, len(prmp_indizes), 2))
+                prmp_list_N = len(prmp_list)
+                try:
+                    results     = torch.einsum(f'{modes_indices},{prmp_indizes_updated}->', *modes_tensors, *prmp_list[0])
+                    torchsum    = False
+                    for iP in range(1, prmp_list_N):
+                        results += torch.einsum(f'{modes_indices},{prmp_indizes_updated}->', *modes_tensors, *prmp_list[iP])
+                except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as e1:
+                    print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error:")
+                    print(e1)
+                    print('__________')
+                    continue
+            if torchsum:
+                results = torch.sum(results, dim=0)
             clusters_with_kies_copy.append((full_cluster[0], results))
+            print(cntrctns_cntr)
+            cntrctns_cntr+=1
         return clusters_with_kies_copy, self.WT_numerical_factors
