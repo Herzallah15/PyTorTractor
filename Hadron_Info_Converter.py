@@ -14,6 +14,112 @@ from Hadrontractions_Converter import *
 
 er1 = 'In hadron you need to provide the following informations: HadronPosition, OpertorType, Flavor, Momentum, LGIrrep, Displacement'
 er2 = 'OpertorType must be either meson_operators or baryon_operators'
+def ddir(path):
+    if np.all(path == np.zeros(3)):
+        return 'ddir0'
+    else:
+        if np.all(path[1:] == np.zeros(2)):
+            return f'ddir{path[0]}'
+        elif np.all(np.array([path[0], path[2]]) == np.zeros(2)):
+            return f'ddir0_{path[1]}_0'
+        elif np.all(np.array([path[0], path[1]]) == np.zeros(2)):
+            return f'ddir0_0_{path[2]}'
+        else:
+            raise ValueError('Current Verson of PyTorTractor can handle only displacement of the form i00, 0i0 or 00i')
+
+
+#def momentum(string_value):
+#    if string_value == 'mom_ray_000':
+#        return 'px0_py0_pz0'
+
+#            "0" =>  0
+#            "+" =>  1
+#            "-" => -1
+#            "#" =>  2
+#            "=" => -2
+#            "T" =>  3
+#            "t" => -3
+mom_map = {0: '0', 1: '+', -1: '-', 2: '#', -2: '=', 3: 'T', -3: 't'}
+def sgn(x):
+    if x > 0:
+        return '+'
+    elif x<0:
+        return '-'
+    else:
+        return '0'
+def momentum(p_momentum):
+    p = list(p_momentum)
+    px, py, pz = p
+    pab = [np.abs(pi) for pi in p]
+    pxa, pya, pza = pab
+    p_value = f'px{px}_py{py}_pz{pz}'
+    string_value = 'mom_ray_'
+    if all(pi == 0 for pi in p):
+        return {'mom_path': 'mom_ray_000', 'int_value': p_value}
+    if len(set(pab)) == 1:#three terms are equal
+        string_value += f'{sgn(px)}{sgn(py)}{sgn(pz)}'
+    elif len(set(pab)) == 2:#two terms are equal
+        if pxa == pya:
+            string_value += f'{sgn(px)}{sgn(py)}{mom_map[pz]}'
+        elif pxa == pza:
+            string_value += f'{sgn(px)}{mom_map[py]}{sgn(pz)}'
+        elif pya == pza:
+            string_value += f'{mom_map[px]}{sgn(py)}{sgn(pz)}'    
+    else:#none of the terms are equal!
+        string_value += f'{mom_map[px]}{mom_map[py]}{mom_map[pz]}'
+    return {'mom_path': string_value, 'int_value': p_value}
+
+index_map = {
+    (1,0,0): 'a',
+    (1,0,1): 'b',
+    (1,0,2): 'c',
+
+    (1,1,0): 'd',
+    (1,1,1): 'e',
+    (1,1,2): 'f',
+
+    (1,2,0): 'g',
+    (1,2,1): 'h',
+    (1,2,2): 'i',
+
+    (1,3,0): 'G',
+    (1,3,1): 'H',
+    (1,3,2): 'I',
+
+    (0,0,0): 'j',
+    (0,0,1): 'k',
+    (0,0,2): 'l',
+
+    (0,1,0): 'm',
+    (0,1,1): 'n',
+    (0,1,2): 'o',
+
+    (0,2,0): 'p',
+    (0,2,1): 'q',
+    (0,2,2): 'r',
+
+
+    (2,0,0): 's',
+    (2,0,1): 't',
+    (2,0,2): 'u',
+
+    (2,1,0): 'v',
+    (2,1,1): 'w',
+    (2,1,2): 'x',
+
+    (2,2,0): 'V',
+    (2,2,1): 'W',
+    (2,2,2): 'X',
+
+    (3,0,0): 'y',
+    (3,0,1): 'z',
+    (3,0,2): 'Y',
+
+    (3,1,0): 'S',
+    (3,1,1): 'T',
+    (3,1,2): 'U',
+
+}
 
 class Hadron:
     def __init__(self, File_Info_Path = None, Hadron_Type = None, Hadron_Position = None, Flavor = None,
@@ -37,8 +143,10 @@ class Hadron:
         return tuple(self.Hadron_Position)
     def getFlavor(self):
         return self.Flavor
-    def getMomentum(self):
-        return self.Momentum
+    def getMomentum_Path(self):
+        return momentum(self.Momentum)['mom_path']
+    def getMomentum_Value(self):
+        return momentum(self.Momentum)['int_value']
     def getGroup(self):
         return self.LGIrrep
     def getDisplacement(self):
@@ -46,7 +154,7 @@ class Hadron:
     def getInfo(self):
         with h5py.File(self.getFile_Info_Path(), 'r') as info_container:
             ht                   = self.getHadron_Type()
-            fl, mom              = self.getFlavor(), self.getMomentum()
+            fl, mom              = self.getFlavor(), self.getMomentum_Path()
             grp, disp            = self.getGroup(), self.getDisplacement()
             spin_structure_info  = info_container[ht][fl][mom][grp][disp]['ivals'][:]
             N_Combinations       = spin_structure_info[0]
@@ -63,6 +171,11 @@ class Hadron:
             if Spin_Displacement_N == 6:
                 q2         = Hdrn + (2,)
                 comb_i[q2] = c_info_i[2]
+                comb_i[Hdrn]['MomDis'] = {'MT': self.getMomentum_Value()+'_'+ ddir(c_info_i[-3:]) }
+            elif Spin_Displacement_N ==5:
+                comb_i[Hdrn]['MomDis'] = {'MD': self.getMomentum_Value()+'_'+ ddir(c_info_i[-3:]) }
+            else:
+                raise ValueError('Failed to extract the hadron informations *')
             list_info.append(comb_i)
         return list_info
 
@@ -103,21 +216,22 @@ class ExplicitPerambulator:
         return self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['dis']
     def getDis_Bar(self):
         return self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['dis']
-    def getFF(self):
+    def getFF_H(self):
         if self.getH()[0] == 0:
             ff1 = self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item().conjugate()
         elif self.getH()[0] == 1:
             ff1 = self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item()
         else:
             raise ValueError('A hadron can be either on sink 1 or source 0')
-
+        return ff1
+    def getFF_H_Bar(self):
         if self.getH_Bar()[0] == 0:
             ff2 = self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item().conjugate()
         elif self.getH_Bar()[0] == 1:
             ff2 = self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item()
         else:
             raise ValueError('A hadron can be either on sink 1 or source 0')
-        return ff1 * ff2
+        return ff2
     def getFlavor(self):
         return self.getPerambulator().getFlvr()
 
@@ -126,6 +240,31 @@ class ExplicitPerambulator_Container_OneComb:
     def __init__(self, perambulator_container:Perambulator_Container, onecomb_info):
         self.perambulator_container = perambulator_container
         self.onecomb_info           = onecomb_info
+    def getModeInfos(self):
+        non_ex_perambulators = self.perambulator_container.getPerambulators()
+        hadrons_NB    = [tuple(hadron.getH().tolist()) for hadron in non_ex_perambulators]
+        hadrons_B     = [tuple(hadron.getH_Bar().tolist()) for hadron in non_ex_perambulators]
+        hadrons_all   = hadrons_NB + hadrons_B
+        hadrons_all   = set(hadrons_all)
+        mom_dis_paths = []
+        index_list    = []
+        for hadron in hadrons_all:
+            q0, q1 = hadron + (0,), hadron + (1,)
+            if list(self.onecomb_info[hadron]['MomDis'].keys())[0] == 'MD':
+                link = str(hadron[0])+'D_'+ self.onecomb_info[hadron]['MomDis']['MD']
+                mom_dis_paths.append(link)
+                contraction_indices = index_map[q0] + index_map[q1]
+                index_list.append(contraction_indices)
+            elif list(self.onecomb_info[hadron]['MomDis'].keys())[0] == 'MT':
+                q2 = hadron + (2,)
+                link = str(hadron[0])+'T_'+ self.onecomb_info[hadron]['MomDis']['MT']
+                mom_dis_paths.append(link)
+                contraction_indices = index_map[q0] + index_map[q1] + index_map[q2]
+                index_list.append(contraction_indices)
+            else:
+                raise ValueError('Failed to identiy the Modes')
+        #print({'mom_dis_info': mom_dis_paths, 'index_info': tuple(index_list)})
+        return {'mom_dis_info': mom_dis_paths, 'index_info': tuple(index_list)}
     def getExplicit_Perambulators(self):
         non_ex_perambulators = self.perambulator_container.getPerambulators()
         return [ExplicitPerambulator(P, self.onecomb_info) for P in non_ex_perambulators]
@@ -142,3 +281,20 @@ class Final_Perambulator_Container:
                 ExplicitPerambulator_Container_OneComb(self.perambulator_container, 
                                                        onecomb_info).getExplicit_Perambulators())
         return one_perambulator_container_to_all_explicit
+    def getModeInfos(self):
+        tracking_momdis = set()#This is to see we have different mode informations in one container or not!
+        indices_info    = set()#We expect, for one Final_Container, i.e., a container with all possiblities, that 
+                               #the indizes of the laphs do not change, since the final container is simply one conainer with
+                               #all possiblie spin combinations! However, the modes themselves could change in regard of momentum/dis
+        all_momdis_info = []#Here we hfor each term in getExplicit_Perambulator_Containers the corresponding Mode_Informations!
+        for onecomb_info in self.all_comb:
+            exp_result_mode_info = ExplicitPerambulator_Container_OneComb(self.perambulator_container, onecomb_info).getModeInfos()
+            all_momdis_info.append(exp_result_mode_info['mom_dis_info'])
+            tracking_momdis.add(tuple(exp_result_mode_info['mom_dis_info']))
+            indices_info.add(tuple(exp_result_mode_info['index_info']))
+        if len(indices_info) != 1:
+            raise ValueError('Failed to extrac the indices of the Modes')
+        if len(tracking_momdis) == 1:
+            all_momdis_info = list(tracking_momdis)[0]
+            print('all_momdis_info: ', all_momdis_info)
+        return {'Mode_Index_Info': list(indices_info)[0], 'MDT_Info': all_momdis_info}

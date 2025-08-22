@@ -15,6 +15,61 @@ from Hadrontractions_Converter import *
 from Hadron_Info_Converter import *
 
 
+def ddir(path):
+    if np.all(path == np.zeros(3)):
+        return 'ddir0'
+    else:
+        if np.all(path[1:] == np.zeros(2)):
+            return f'ddir{path[0]}'
+        elif np.all(np.array([path[0], path[2]]) == np.zeros(2)):
+            return f'ddir0_{path[1]}_0'
+        elif np.all(np.array([path[0], path[1]]) == np.zeros(2)):
+            return f'ddir0_0_{path[2]}'
+        else:
+            raise ValueError('Current Verson of PyTorTractor can handle only displacement of the form i00, 0i0 or 00i')
+
+
+#def momentum(string_value):
+#    if string_value == 'mom_ray_000':
+#        return 'px0_py0_pz0'
+
+#            "0" =>  0
+#            "+" =>  1
+#            "-" => -1
+#            "#" =>  2
+#            "=" => -2
+#            "T" =>  3
+#            "t" => -3
+mom_map = {0: '0', 1: '+', -1: '-', 2: '#', -2: '=', 3: 'T', -3: 't'}
+def sgn(x):
+    if x > 0:
+        return '+'
+    elif x<0:
+        return '-'
+    else:
+        return '0'
+def momentum(p_momentum):
+    p = list(p_momentum)
+    px, py, pz = p
+    pab = [np.abs(pi) for pi in p]
+    pxa, pya, pza = pab
+    p_value = f'px{px}_py{py}_pz{pz}'
+    string_value = 'mom_ray_'
+    if all(pi == 0 for pi in p):
+        return {'mom_path': 'mom_ray_000', 'int_value': p_value}
+    if len(set(pab)) == 1:#three terms are equal
+        string_value += f'{sgn(px)}{sgn(py)}{sgn(pz)}'
+    elif len(set(pab)) == 2:#two terms are equal
+        if pxa == pya:
+            string_value += f'{sgn(px)}{sgn(py)}{mom_map[pz]}'
+        elif pxa == pza:
+            string_value += f'{sgn(px)}{mom_map[py]}{sgn(pz)}'
+        elif pya == pza:
+            string_value += f'{mom_map[px]}{sgn(py)}{sgn(pz)}'    
+    else:#none of the terms are equal!
+        string_value += f'{mom_map[px]}{mom_map[py]}{mom_map[pz]}'
+    return {'mom_path': string_value, 'int_value': p_value}
+
 index_map = {
     (1,0,0): 'a',
     (1,0,1): 'b',
@@ -66,18 +121,6 @@ index_map = {
     (3,1,2): 'U',
 
 }
-
-
-def ddir(path):
-    if np.all(path == np.array([0,0,0])):
-        return 'ddir0'
-    else:
-        raise ValueError('Displacement_CannotBe')
-
-
-def momentum(string_value):
-    if string_value == 'mom_ray_000':
-        return 'px0_py0_pz0'
 
 
 def hdrn_type(x):
@@ -256,83 +299,98 @@ def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading =
     return P_SuperTenspr_Dict
 
 
-def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, Double_Reading = False, cplx128 = True):
+def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selected_Groups = None):
     if cplx128:
         data_type = torch.complex128
     else:
         data_type = torch.complex64
     MD_SuperTensor_Dict = {}
-    seen_gropus         = set()
-    if isinstance(Path_ModeDoublet, str):
-        Path_All_ModeDoublet = [Path_ModeDoublet]
-    else:
-        Path_All_ModeDoublet = Path_ModeDoublet
-    for One_Path_ModeDoublet in Path_All_ModeDoublet:
-        with h5py.File(One_Path_ModeDoublet, 'r') as yunus:
-            yunus1         = yunus['/ModeDoubletData']
-            for i, group in enumerate(yunus1):
-                if i == 0:
-                    if yunus1[group]['re'].ndim == 1:
-                        N    = int(np.sqrt(yunus1[group]['re'][:].shape[0]))
-                        resp = True
-                    elif yunus1[group]['re'].ndim == 2:
-                        N    = yunus1[group]['re'][:].shape[0]
-                        resp = False
-                    else:
-                        raise ValueError('Failed to read the ModeDoublets')
-                if group in seen_gropus and not Double_Reading:
-                    print(f'The group {group} appears more than one time! Add Double_Reading = True')
-                    print('or provide Path_ModeDoublet that contain only unique groups of groups')
-                    raise ValueError('Error in reading data from Path_ModeDoublet')
-                if resp:
-                    MD_SuperTensor_Dict[group] = torch.complex(
-                        torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=data_type).to(Device)
+    with h5py.File(Path_ModeDoublet, 'r') as yunus:
+        yunus1 = yunus['/ModeDoubletData']
+        if Selected_Groups is not None:
+            if isinstance(Selected_Groups, str):
+                selected_pathes = [Selected_Groups]
+            else:
+                selected_pathes = Selected_Groups
+        else:
+            selected_pathes = [group for group in yunus1]
+        for i, group in enumerate(selected_pathes):
+            if i == 0:
+                if yunus1[group]['re'].ndim == 1:
+                    N    = int(np.sqrt(yunus1[group]['re'][:].shape[0]))
+                    resp = True
+                elif yunus1[group]['re'].ndim == 2:
+                    N    = yunus1[group]['re'][:].shape[0]
+                    resp = False
                 else:
-                    MD_SuperTensor_Dict[group] = torch.complex(
-                        torch.from_numpy(yunus1[group]['re'][:]),
-                        torch.from_numpy(yunus1[group]['im'][:])).to(dtype=data_type).to(Device)              
+                    raise ValueError('Failed to read the ModeDoublets')
+            if resp:
+                MD_SuperTensor_Dict[group] = torch.complex(
+                    torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N),
+                    torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N)).to(dtype=data_type).to(Device)
+            else:
+                MD_SuperTensor_Dict[group] = torch.complex(
+                    torch.from_numpy(yunus1[group]['re'][:]),
+                    torch.from_numpy(yunus1[group]['im'][:])).to(dtype=data_type).to(Device)              
     print(r'MD_Tensor has been successfully constructed')
     return MD_SuperTensor_Dict
 
-def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, Double_Reading = False, cplx128 = True):
+def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Triplet_Identity = None):
     if cplx128:
         data_type = torch.complex128
     else:
         data_type = torch.complex64
+    if (Use_Triplet_Identity is not None) and not isinstance(bool, str, set, list, tuple):
+        raise TypeError(f'The argument Use_Triplet_Identity can be either bool, str, set, list or tuple!')
     MT_SuperTensor_Dict = {}
-    seen_gropus         = set()
-    if isinstance(Path_ModeTriplet, str):
-        Path_All_ModeTriplet = [Path_ModeTriplet]
-    else:
-        Path_All_ModeTriplet = Path_ModeTriplet
-    for One_Path_ModeTriplet in Path_All_ModeTriplet:
-        with h5py.File(One_Path_ModeTriplet, 'r') as yunus:
-            yunus1         = yunus['/ModeTripletData']
-            for i, group in enumerate(yunus1):
-                if i == 0:
-                    if yunus1[group]['re'].ndim == 1:
-                        N    = int(np.cbrt(yunus1[group]['re'][:].shape[0]))
-                        resp = True
-                    elif yunus1[group]['re'].ndim == 3:
-                        N    = yunus1[group]['re'][:].shape[0]
-                        resp = False
-                    else:
-                        raise ValueError('Failed to read the ModeDoublets')
-                if group in seen_gropus and not Double_Reading:
-                    print(f'The group {group} appears more than one time! Add Double_Reading = True')
-                    print('or provide Path_ModeTriplet that contain only unique groups of groups')
-                    raise ValueError('Error in reading data from Path_ModeTriplet')
-                if resp:
-                    MT_SuperTensor_Dict[group] = torch.complex(
-                        torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
-                        torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=data_type).to(Device)
+    with h5py.File(Path_ModeTriplet, 'r') as yunus:
+        yunus1 = yunus['/ModeTripletData']
+        if Selected_Groups is not None:
+            if isinstance(Selected_Groups, str):
+                selected_pathes = [Selected_Groups]
+            else:
+                selected_pathes = Selected_Groups
+        else:
+            selected_pathes = [group for group in yunus1]
+        for i, group in enumerate(selected_pathes):
+            if i == 0:
+                if yunus1[group]['re'].ndim == 1:
+                    N    = int(np.cbrt(yunus1[group]['re'][:].shape[0]))
+                    resp = True
+                elif yunus1[group]['re'].ndim == 3:
+                    N    = yunus1[group]['re'][:].shape[0]
+                    resp = False
                 else:
-                    MT_SuperTensor_Dict[group] = torch.complex(
-                        torch.from_numpy(yunus1[group]['re'][:]),
-                        torch.from_numpy(yunus1[group]['im'][:])).to(dtype=data_type).to(Device)     
+                    raise ValueError('Failed to read the ModeDoublets')
+            if resp:
+                MT_SuperTensor_Dict[group] = torch.complex(
+                    torch.from_numpy(yunus1[group]['re'][:]).reshape(N,N,N),
+                    torch.from_numpy(yunus1[group]['im'][:]).reshape(N,N,N)).to(dtype=data_type).to(Device)
+            else:
+                MT_SuperTensor_Dict[group] = torch.complex(
+                    torch.from_numpy(yunus1[group]['re'][:]),
+                    torch.from_numpy(yunus1[group]['im'][:])).to(dtype=data_type).to(Device)
+    if Use_Triplet_Identity is not None:
+        if isinstance(Use_Triplet_Identity, bool):
+            if Use_Triplet_Identity:
+                re_construct_group = [group for group in MT_SuperTensor_Dict]
+            else:
+                print(r'MT_Tensor has been successfully constructed')
+                return MT_SuperTensor_Dict
+        elif isinstance(Use_Triplet_Identity, str):
+            re_construct_group = [Use_Triplet_Identity]
+        elif isinstance(Use_Triplet_Identity, (set, list, tuple)):
+            re_construct_group = list(Use_Triplet_Identity)
+        for group in re_construct_group:
+            if group.split('_')[3].split('ddir')[1] != '0':
+                displacement_q2 = group.split('ddir')[0]+'ddir0_'+group.split('_')[3].split('ddir')[1]+'_0_'+group.split('_')[-1]
+                displacement_q3 = group.split('ddir')[0]+'ddir0_0_'+group.split('_')[3].split('ddir')[1]+'_'+group.split('_')[-1]
+                MT_SuperTensor_Dict[displacement_q2] = -1 * MT_SuperTensor_Dict[group].permute(1,0,2)
+                MT_SuperTensor_Dict[displacement_q3] = MT_SuperTensor_Dict[group].permute(2,0,1)
+                print(f'The groups {displacement_q2} and {displacement_q3} have been constructed from {group}')
     print(r'MT_Tensor has been successfully constructed')
     return MT_SuperTensor_Dict
+
 
 
 

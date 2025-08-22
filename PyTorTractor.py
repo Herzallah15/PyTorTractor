@@ -16,7 +16,7 @@ class PyCorrTorch:
         # Sort the hadrons to baryons and mesons so later it becomes easier to extract MT and MD
         hadron_type_mom_map = {}
         for hdrn in self.Hadrons:
-            hadron_type_mom_map[hdrn.getHadron_Position()] = {'T': hdrn_type(hdrn.getHadron_Type()), 'P': momentum(hdrn.getMomentum())}
+            hadron_type_mom_map[hdrn.getHadron_Position()] = {'T': hdrn_type(hdrn.getHadron_Type()), 'P': hdrn.getMomentum_Value()}
         self.hadron_type_mom_map = hadron_type_mom_map
         
 
@@ -25,17 +25,115 @@ class PyCorrTorch:
         # SpinStructure Combinations between the hadrons
         self.hadron_product = hadron_info_multiplier(*self.Hadrons)
         print('All combinations of hadron structures coefficients were generated')
-
         print('Insert now these combinations explicitly into the the clusters!')
         self.clusters_with_kies = [((outer_key, inner_key), 
+                                    [Final_Perambulator_Container(prpm_container, self.hadron_product).getModeInfos(),
+                                    Final_Perambulator_Container(prpm_container, self.hadron_product).getExplicit_Perambulator_Containers()] ) 
+                               for outer_key, inner_dict in self.clusters.items() 
+                               for inner_key, prpm_container in inner_dict.items()]
+        print('Each cluster is now splitted into many clusters with various explicit spin combinations')
+
+    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
+        if (All_Perambulators is None):
+            raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
+        if (ModeDoublets is None) and (ModeTriplets is None):
+            er = 'TorchTractor must take as argument at least a ModeDoublet or a ModeTriplet.'
+            raise ValueError(f'{er} one or both of the following arguments are missing: ModeDoublets = ..., ModeTriplets = ... ')
+        def Perambulator_Setup(exp_prmp_container):
+            Prmp_Indices = ''
+            Prmp_Tensors = []
+            seen_hadron = set()
+            for perambulator in exp_prmp_container:
+                Prmp_Indices += index_map[perambulator.getQ()]
+                Prmp_Indices += index_map[perambulator.getQ_Bar()]
+                s             = perambulator.getS() - 1
+                s_Bar         = perambulator.getS_Bar() - 1
+                p_left        = perambulator.getH()[0]
+                p_right       = perambulator.getH_Bar()[0]
+                prmp_flavor   = perambulator.getFlavor()
+                num_factor    = 1
+                if perambulator.getH() not in seen_hadron:
+                    seen_hadron.add(perambulator.getH())
+                    num_factor *= perambulator.getFF_H()
+                if perambulator.getH_Bar() not in seen_hadron:
+                    seen_hadron.add(perambulator.getH_Bar())
+                    num_factor *= perambulator.getFF_H_Bar()
+                if p_left   == 1 and p_right == 0:
+                    time    = f'srcTime{self.SourceTime}_snkTime{self.SinkTime}'
+                elif p_left == 0 and p_right == 1:
+                    time    = f'srcTime{self.SinkTime}_snkTime{self.SourceTime}'
+                elif p_left == 1 and p_right == 1:
+                    time    = f'srcTime{self.SinkTime}_snkTime{self.SinkTime}'
+                elif p_left == 0 and p_right == 0:
+                    time    = f'srcTime{self.SourceTime}_snkTime{self.SourceTime}'
+                else:
+                    raise ValueError('Error in extracting perambulators from the Perambulator_Tensor_Dict')
+                Prmp_Tensors.append((All_Perambulators[prmp_flavor][time][s, s_Bar, :, :] * num_factor))
+            return {'index': Prmp_Indices, 'Tensor': Prmp_Tensors}
+        clusters_with_kies_copy = []
+        print(f'{len(self.clusters_with_kies)} tensor contractions to be performed')
+        cntrctns_cntr = 0
+        comparing_list = {}
+        for full_cluster in self.clusters_with_kies:
+            Doublet_Triplet_Tensor_Info = full_cluster[1][0]['MDT_Info']
+            DT_Index  = ','.join(full_cluster[1][0]['Mode_Index_Info'])
+            if isinstance(Doublet_Triplet_Tensor_Info, tuple):
+                print('One ModeDoublet/Triplet for a spin combination')
+                M_Tensors = []
+                for path in Doublet_Triplet_Tensor_Info:
+                    if path[0] == '0':
+                        final_path = path[3:]+'_t'+str(self.SourceTime)
+                        if path[1] == 'D':
+                            M_Tensors.append(ModeDoublets[final_path].conj())
+                        elif path[1] == 'T':
+                            M_Tensors.append(ModeTriplets[final_path].conj())
+                        else:
+                            raise ValueError('Failed to identiy type of the Mode')
+                    elif path[0] == '1':
+                        final_path = path[3:]+'_t'+str(self.SinkTime)
+                        if path[1] == 'D':
+                            M_Tensors.append(ModeDoublets[final_path])
+                        elif path[1] == 'T':
+                            M_Tensors.append(ModeTriplets[final_path])
+                        else:
+                            raise ValueError('Failed to identiy type of the Mode')
+                    else:
+                        raise ValueError('Failed to identify sink and source times')
+            else:
+                raise ValueError('Update the Method!')
+            prmp_list     = []
+            extractor     = Perambulator_Setup(full_cluster[1][1][0])
+            prmp_indizes  = extractor['index']
+            prmp_list.append(extractor['Tensor'])
+            torchsum = True
+            for prmp_container in full_cluster[1][1][1:]:
+                peram_info = Perambulator_Setup(prmp_container)
+                if peram_info['index'] != prmp_indizes:
+                    raise ValueError('Something wrong with Perambulator_Extractor')
+                prmp_list.append(peram_info['Tensor'])
+            try:
+                Perambulators = torch.stack([Tensor_Product(Qs) for Qs in prmp_list], dim=0)
+                comparing_list[full_cluster[0]] = {'DT_Index': DT_Index, 'prmp_indizes': prmp_indizes,
+                                                   'M_Tensors': M_Tensors, 'Perambulators': Perambulators}
+                results      = torch.einsum(f'{DT_Index},Z{prmp_indizes}->Z', *M_Tensors, Perambulators)
+            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as e:
+                print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error:")
+                print(e1)
+                print('__________')
+                continue
+            results = torch.sum(results, dim=0)
+            clusters_with_kies_copy.append((full_cluster[0], results))
+            print(cntrctns_cntr)
+            cntrctns_cntr+=1
+        #return comparing_list
+        return clusters_with_kies_copy, self.WT_numerical_factors
+
+    #commet_01
+    def TorchTractor_old(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
+        naive_clusters_with_kies = [((outer_key, inner_key), 
                                     Final_Perambulator_Container(prpm_container, self.hadron_product).getExplicit_Perambulator_Containers() ) 
                                for outer_key, inner_dict in self.clusters.items() 
                                for inner_key, prpm_container in inner_dict.items()]
-
-        print('Each cluster is now splitted into many clusters with various explicit spin combinations')
-
-    #commet_01
-    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
         if (ModeDoublets is None) and (ModeTriplets is None):
@@ -80,6 +178,7 @@ class PyCorrTorch:
         def Perambulator_Setup(exp_prmp_container):
             Prmp_Indices = ''
             Prmp_Tensors = []
+            seen_hadron = set()
             for perambulator in exp_prmp_container:
                 Prmp_Indices += index_map[perambulator.getQ()]
                 Prmp_Indices += index_map[perambulator.getQ_Bar()]
@@ -88,7 +187,13 @@ class PyCorrTorch:
                 p_left        = perambulator.getH()[0]
                 p_right       = perambulator.getH_Bar()[0]
                 prmp_flavor   = perambulator.getFlavor()
-                num_factor    = perambulator.getFF()
+                num_factor    = 1
+                if perambulator.getH() not in seen_hadron:
+                    seen_hadron.add(perambulator.getH())
+                    num_factor *= perambulator.getFF_H()
+                if perambulator.getH_Bar() not in seen_hadron:
+                    seen_hadron.add(perambulator.getH_Bar())
+                    num_factor *= perambulator.getFF_H_Bar()
                 if p_left   == 1 and p_right == 0:
                     time    = f'srcTime{self.SourceTime}_snkTime{self.SinkTime}'
                 elif p_left == 0 and p_right == 1:
@@ -102,9 +207,10 @@ class PyCorrTorch:
                 Prmp_Tensors.append((All_Perambulators[prmp_flavor][time][s, s_Bar, :, :] * num_factor))
             return {'index': Prmp_Indices, 'Tensor': Prmp_Tensors}
         clusters_with_kies_copy = []
-        print(f'{len(self.clusters_with_kies)} tensor contractions to be performed')
+        print(f'{len(naive_clusters_with_kies)} tensor contractions to be performed')
         cntrctns_cntr = 0
-        for full_cluster in self.clusters_with_kies:
+        comparing_list = {}
+        for full_cluster in naive_clusters_with_kies:
             modes_info    = Modes_Setup(full_cluster[0][0], full_cluster[1][0])
             modes_indices = modes_info['index'][:-1]
             modes_tensors = modes_info['Tensor']
@@ -120,23 +226,17 @@ class PyCorrTorch:
                 prmp_list.append(peram_info['Tensor'])
             try:
                 Perambulators = torch.stack([Tensor_Product(Qs) for Qs in prmp_list], dim=0)
+                comparing_list[full_cluster[0]] = {'DT_Index': modes_indices, 'prmp_indizes': prmp_indizes,
+                                                   'M_Tensors': modes_tensors, 'Perambulators': Perambulators}
                 results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', *modes_tensors, Perambulators)
             except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as e:
-                prmp_indizes_updated = ",".join(prmp_indizes[i:i+2] for i in range(0, len(prmp_indizes), 2))
-                prmp_list_N = len(prmp_list)
-                try:
-                    results     = torch.einsum(f'{modes_indices},{prmp_indizes_updated}->', *modes_tensors, *prmp_list[0])
-                    torchsum    = False
-                    for iP in range(1, prmp_list_N):
-                        results += torch.einsum(f'{modes_indices},{prmp_indizes_updated}->', *modes_tensors, *prmp_list[iP])
-                except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as e1:
-                    print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error:")
-                    print(e1)
-                    print('__________')
-                    continue
-            if torchsum:
-                results = torch.sum(results, dim=0)
+                print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error:")
+                print(e1)
+                print('__________')
+                continue
+            results = torch.sum(results, dim=0)
             clusters_with_kies_copy.append((full_cluster[0], results))
             print(cntrctns_cntr)
             cntrctns_cntr+=1
+        #return comparing_list
         return clusters_with_kies_copy, self.WT_numerical_factors
