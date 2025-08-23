@@ -116,9 +116,9 @@ class PyCorrTorch:
                 comparing_list[full_cluster[0]] = {'DT_Index': DT_Index, 'prmp_indizes': prmp_indizes,
                                                    'M_Tensors': M_Tensors, 'Perambulators': Perambulators}
                 results      = torch.einsum(f'{DT_Index},Z{prmp_indizes}->Z', *M_Tensors, Perambulators)
-            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as e:
+            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
                 print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error:")
-                print(e1)
+                print(er)
                 print('__________')
                 continue
             results = torch.sum(results, dim=0)
@@ -129,6 +129,7 @@ class PyCorrTorch:
         return clusters_with_kies_copy, self.WT_numerical_factors
 
     #commet_01
+    '''
     def TorchTractor_old(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
         naive_clusters_with_kies = [((outer_key, inner_key), 
                                     Final_Perambulator_Container(prpm_container, self.hadron_product).getExplicit_Perambulator_Containers() ) 
@@ -229,9 +230,9 @@ class PyCorrTorch:
                 comparing_list[full_cluster[0]] = {'DT_Index': modes_indices, 'prmp_indizes': prmp_indizes,
                                                    'M_Tensors': modes_tensors, 'Perambulators': Perambulators}
                 results      = torch.einsum(f'{modes_indices},Z{prmp_indizes}->Z', *modes_tensors, Perambulators)
-            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as e:
+            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
                 print(f"Skipping contractions for cluster {full_cluster[0][0]} and diagram(s) {full_cluster[0][1]} due to memory error:")
-                print(e1)
+                print(er)
                 print('__________')
                 continue
             results = torch.sum(results, dim=0)
@@ -240,3 +241,4 @@ class PyCorrTorch:
             cntrctns_cntr+=1
         #return comparing_list
         return clusters_with_kies_copy, self.WT_numerical_factors
+    '''
