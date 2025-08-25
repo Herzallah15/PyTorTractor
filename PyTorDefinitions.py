@@ -83,44 +83,62 @@ index_map = {
     (1,2,1): 'h',
     (1,2,2): 'i',
 
-    (1,3,0): 'G',
-    (1,3,1): 'H',
-    (1,3,2): 'I',
+    (1,3,0): 'j',
+    (1,3,1): 'k',
+    (1,3,2): 'l',
 
-    (0,0,0): 'j',
-    (0,0,1): 'k',
-    (0,0,2): 'l',
+    (0,0,0): 'm',
+    (0,0,1): 'n',
+    (0,0,2): 'o',
 
-    (0,1,0): 'm',
-    (0,1,1): 'n',
-    (0,1,2): 'o',
+    (0,1,0): 'p',
+    (0,1,1): 'q',
+    (0,1,2): 'r',
 
-    (0,2,0): 'p',
-    (0,2,1): 'q',
-    (0,2,2): 'r',
+    (0,2,0): 's',
+    (0,2,1): 't',
+    (0,2,2): 'u',
 
-
-    (2,0,0): 's',
-    (2,0,1): 't',
-    (2,0,2): 'u',
-
-    (2,1,0): 'v',
-    (2,1,1): 'w',
-    (2,1,2): 'x',
-
-    (2,2,0): 'V',
-    (2,2,1): 'W',
-    (2,2,2): 'X',
-
-    (3,0,0): 'y',
-    (3,0,1): 'z',
-    (3,0,2): 'Y',
-
-    (3,1,0): 'S',
-    (3,1,1): 'T',
-    (3,1,2): 'U',
-
+    (0,3,0): 'v',
+    (0,3,1): 'w',
+    (0,3,2): 'x',
 }
+
+
+spin_index_map = {
+    (1,0,0): 'A',
+    (1,0,1): 'B',
+    (1,0,2): 'C',
+
+    (1,1,0): 'D',
+    (1,1,1): 'E',
+    (1,1,2): 'F',
+
+    (1,2,0): 'G',
+    (1,2,1): 'H',
+    (1,2,2): 'I',
+
+    (1,3,0): 'J',
+    (1,3,1): 'K',
+    (1,3,2): 'L',
+
+    (0,0,0): 'M',
+    (0,0,1): 'N',
+    (0,0,2): 'O',
+
+    (0,1,0): 'P',
+    (0,1,1): 'Q',
+    (0,1,2): 'R',
+
+    (0,2,0): 'S',
+    (0,2,1): 'T',
+    (0,2,2): 'U',
+
+    (0,3,0): 'V',
+    (0,3,1): 'W',
+    (0,3,2): 'X',
+}
+
 
 
 def hdrn_type(x):
@@ -391,7 +409,31 @@ def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selec
     print(r'MT_Tensor has been successfully constructed')
     return MT_SuperTensor_Dict
 
+def Prmp_Set(exp_prmp_container):
+    Spin_Indices = []
+    seen_hadron  = set()
+    num_factor   = 1.0
+    for perambulator in exp_prmp_container:
+        s,s_Bar = perambulator.getS() - 1, perambulator.getS_Bar() - 1
+        Spin_Indices.append(s)
+        Spin_Indices.append(s_Bar)
+        if perambulator.getH() not in seen_hadron:
+            seen_hadron.add(perambulator.getH())
+            num_factor *= perambulator.getFF_H()
+        if perambulator.getH_Bar() not in seen_hadron:
+            seen_hadron.add(perambulator.getH_Bar())
+            num_factor *= perambulator.getFF_H_Bar()
+    return {'Spin_Indices': Spin_Indices, 'Numerical_Factor': num_factor}
 
+           
+def SpnFF_XTractor(full_cluster):
+    #Full cluster is a list. Each element is a perambulator_container.
+    #From each element of this list we extract: 1. Explicit-Spins. 2. Overall number
+    return [Prmp_Set(exp_prmp_container) for exp_prmp_container in full_cluster]
+    
+    
+    
+    
 
 
 
