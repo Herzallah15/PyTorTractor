@@ -35,9 +35,11 @@ class PyCorrTorch:
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
 
     def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
+        '''
         process = psutil.Process(os.getpid())
         mem = process.memory_info().rss / 1024**2 
         print(f"Speicherverbrauch: {mem:.1f} MB")
+        '''
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
         if (ModeDoublets is None) and (ModeTriplets is None):
@@ -46,9 +48,11 @@ class PyCorrTorch:
         print(f'{len(self.clusters_with_kies)} tensor contractions to be performed')
         cntrctns_cntr = 0
         def Perambulator_Laph(exp_prmp_container):
+            '''
             process = psutil.Process(os.getpid())
             mem = process.memory_info().rss / 1024**2 
             print(f"Speicherverbrauch Anfang von Perambulator_Laph: {mem:.1f} MB")
+            '''
             Prmp_Indices_In  = ''
             Prmp_Indices_Out = ''
             Prmp_Tensors = []
@@ -70,20 +74,24 @@ class PyCorrTorch:
                 else:
                     raise ValueError('Error in extracting perambulators from the Perambulator_Tensor_Dict')
                 Prmp_Tensors.append(All_Perambulators[prmp_flavor][time])
+                '''
                 process = psutil.Process(os.getpid())
                 mem = process.memory_info().rss / 1024**2
                 print(f"Speicherverbrauch_End von Perabmulaotr_Laph: {mem:.1f} MB")
+                '''
             return {'index_In': Prmp_Indices_In[:-1], 'index_Out': Prmp_Indices_Out, 'Tensor': Prmp_Tensors}
         clusters_with_kies_copy = []
         for full_cluster in self.clusters_with_kies:
             Doublet_Triplet_Tensor_Info = full_cluster[1][0]['MDT_Info']
             DT_Index  = ','.join(full_cluster[1][0]['Mode_Index_Info'])
             if isinstance(Doublet_Triplet_Tensor_Info, tuple):
-                print('One ModeDoublet/Triplet for a spin combination')
+                print('One ModeDoublet/Triplet for all spin combination')
                 M_Tensors = []
+                '''
                 process = psutil.Process(os.getpid())
                 mem = process.memory_info().rss / 1024**2 
                 print(f"Speicherverbrauch Vor M_Tensors: {mem:.1f} MB")
+                '''
                 for path in Doublet_Triplet_Tensor_Info:
                     if path[0] == '0':
                         final_path = path[3:]+'_t'+str(self.SourceTime)
@@ -105,17 +113,21 @@ class PyCorrTorch:
                         raise ValueError('Failed to identify sink and source times')
             else:
                 raise ValueError('Update the Method!')
+            '''
             process = psutil.Process(os.getpid())
             mem = process.memory_info().rss / 1024**2 
             print(f"Speicherverbrauch Nach M_Tensors und vor extractor: {mem:.1f} MB")
+            '''
             extractor     = Perambulator_Laph(full_cluster[1][1][0])
             prmp_indx_In  = extractor['index_In']
             prmp_indx_Ou  = extractor['index_Out']
+            '''
             process = psutil.Process(os.getpid())
             mem = process.memory_info().rss / 1024**2 
             print(f"Speicherverbrauch nach extractor: {mem:.1f} MB")
-            print(f' Index Infos: {DT_Index},{prmp_indx_In}->{prmp_indx_Ou}')
-            print(f'Tensor Infos {[i.shape for i in [*M_Tensors]]} and {[i.shape for i in [*extractor["Tensor"]]]}')
+            '''
+            #print(f' Index Infos: {DT_Index},{prmp_indx_In}->{prmp_indx_Ou}')
+            #print(f'Tensor Infos {[i.shape for i in [*M_Tensors]]} and {[i.shape for i in [*extractor["Tensor"]]]}')
             try:
                 results   = torch.einsum(f'{DT_Index},{prmp_indx_In}->{prmp_indx_Ou}', *M_Tensors, *extractor['Tensor'])
             except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
