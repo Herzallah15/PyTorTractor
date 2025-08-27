@@ -14,26 +14,31 @@ class PyCorrTorch:
         # Cluster the Diagrams
         self.clusters, self.WT_numerical_factors = cluster_extractor(Path_Diagrams = self.Path_Wicktract)
 
+
+        fullmap_hadrons = {}
+        for one_hadron in self.Hadrons:
+            fullmap_hadrons[one_hadron.getHadron_Position()] = one_hadron
+        self.fullmap_hadrons = fullmap_hadrons
+
+        # SpinStructure Combinations between the hadrons
+        hadron_combi_map = {}
+        for clstr in self.clusters:
+            hadron_combi_map[clstr] = hadron_info_multiplier(*co_to_Hadorn_co(clstr, self.fullmap_hadrons))
+        self.hadron_combi_map = hadron_combi_map
+        print('All combinations of hadron structures coefficients were generated')
+
         # Sort the hadrons to baryons and mesons so later it becomes easier to extract MT and MD
         hadron_type_mom_map = {}
         for hdrn in self.Hadrons:
             hadron_type_mom_map[hdrn.getHadron_Position()] = {'T': hdrn_type(hdrn.getHadron_Type()), 'P': hdrn.getMomentum_Value()}
         self.hadron_type_mom_map = hadron_type_mom_map
-        
 
 
-
-        # SpinStructure Combinations between the hadrons
-        #self.hadron_product = hadron_info_multiplier(*self.Hadrons)
-        #print('All combinations of hadron structures coefficients were generated')
-        #print('Insert now these combinations explicitly into the the clusters!')
-        fullmap_hadrons = {}
-        for one_hadron in self.Hadrons:
-            fullmap_hadrons[one_hadron.getHadron_Position()] = one_hadron
-        self.fullmap_hadrons = fullmap_hadrons
         self.clusters_with_kies = [((outer_key, inner_key),
-                                    [Final_Perambulator_Container(prpm_container, hadron_info_multiplier(*co_to_Hadorn_co(prpm_container.getHadrons(), self.fullmap_hadrons))).getModeInfos(),
-                                    Final_Perambulator_Container(prpm_container, hadron_info_multiplier(*co_to_Hadorn_co(prpm_container.getHadrons(), self.fullmap_hadrons))).getExplicit_Perambulator_Containers()] )
+                                    [Final_Perambulator_Container(prpm_container, pick_combis(prpm_container.getHadrons(),self.hadron_combi_map)
+                                                                 ).getModeInfos(),
+                                    Final_Perambulator_Container(prpm_container, pick_combis(prpm_container.getHadrons(),self.hadron_combi_map)
+                                                                ).getExplicit_Perambulator_Containers()] )
                                for outer_key, inner_dict in self.clusters.items()
                                for inner_key, prpm_container in inner_dict.items()]
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')

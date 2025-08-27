@@ -442,7 +442,18 @@ def co_to_Hadorn_co(list_of_Hadrons, Full_Map_Of_Hadrons):
     return all_hadrons
 
 
-
+def pick_combis(hadron_cluster, all_combinations_map):
+    #hadron_clzster is of the form ((1,0),...)
+    #all_combinations_map is a map of the form: {((1,0), ..): [combi_i], ..}
+    found = 0
+    for one_cluster in all_combinations_map:
+        if set(hadron_cluster) == set(one_cluster):
+            found += 1
+            one_cluster_combi = all_combinations_map[one_cluster]
+    if found == 1:
+        return one_cluster_combi
+    else:
+        raise ValueError('Failed to extract the cluster')
 
 
 
