@@ -28,6 +28,11 @@ class Perambulator:
         partners.add(tuple(self.getH().tolist()))
         partners.add(tuple(self.getH_Bar().tolist()))
         return partners
+    def getPHadrons(self):
+        if tuple(self.getH().tolist()) != tuple(self.getH_Bar().tolist()):
+            return [tuple(self.getH().tolist()), tuple(self.getH_Bar().tolist())]
+        else:
+            return [tuple(self.getH().tolist())]
     def __eq__(self, other):
         if isinstance(other, Perambulator):
             return np.all(self.getQ() == other.getQ()) and np.all(self.getQ_Bar() == other.getQ_Bar())
@@ -53,6 +58,14 @@ class Perambulator_Container:
         for i in self.getPerambulators():
             dgrm.append(i.show())
         return np.array(dgrm)
+    def getHadrons(self):
+        all_perambulators = self.getPerambulators()
+        all_hadrons       = set()
+        for PerambulaTor in all_perambulators:
+            hadrons_in_perambulator = PerambulaTor.getPHadrons()
+            for HaddRon in hadrons_in_perambulator:
+                all_hadrons.add(HaddRon)
+        return all_hadrons
     def __mul__(self, other):
         if isinstance(other, Perambulator):
             return Perambulator_Container(*([other] + self.getPerambulators()))

@@ -434,7 +434,12 @@ def SpnFF_XTractor(full_cluster):
     
     
     
-
+def co_to_Hadorn_co(list_of_Hadrons, Full_Map_Of_Hadrons):
+    #list_of_hadrons is of the form ((1,0), ...)
+    all_hadrons = []
+    for one_hadron in list_of_Hadrons:
+        all_hadrons.append(Full_Map_Of_Hadrons[one_hadron])
+    return all_hadrons
 
 
 
