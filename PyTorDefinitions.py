@@ -14,21 +14,33 @@ from contractions_handler import *
 from Hadrontractions_Converter import *
 from Hadron_Info_Converter import *
 
+erp_0 = 'Unrecognized path. When including displacement, the path is expected to be of the form px(int)_py(int)_pz(int)_ddir(int)_dlen(int)_t(int)'
+erp_1 = 'When including displacement, the path is expected to be of the form px(int)_py(int)_pz(int)_ddir0_dlen0_t(int)'
+erp_2 = 'Unrecognized path. The path is expected to be px(int)_py(int)_pz(int)_ddir0_t(int)'
+erp_3 = 'For unspecified dlen or dlen = 0, the displacement is expected to be zero/ For ddir0 dlen is expected to be dlen0 or None'
+erp_4 = 'For non-zero displacement, ddlen is expected to be non-zero'
 
-def ddir(path):
-    if np.all(path == np.zeros(3)):
-        return 'ddir0'
+
+# path = "pxI_pyJ_pzK_ddirT_(dlenM_)tU"
+def check_path_MDT(path):
+    path_sp = path.split('_')
+    #path_sp = ['pxI', 'pyJ', 'pzK', 'ddirT', ('dlenM'), 'tU']
+    if len(path_sp) == 6:
+        correct_path = path_sp[0][:2]+path_sp[1][:2]+path_sp[2][:2]+path_sp[3][:4]+path_sp[4][:4]+path_sp[5][0]
+        if correct_path != 'pxpypzddirdlent':
+            raise ValueError(path, '. ', erp_0)
+        if (path_sp[3][4:] == '0') and (not path_sp[4][4:] == '0'):
+            raise ValueError(erp_3)
+        if (path_sp[3][4:] != '0') and (path_sp[4][4:] == '0'):
+            raise ValueError(path, '. ', erp_4)
+    elif len(path_sp) == 5:
+        correct_path = path_sp[0][:2]+path_sp[1][:2]+path_sp[2][:2]+path_sp[3][:4]+path_sp[4][0]
+        if correct_path != 'pxpypzddirt':
+            raise ValueError(path, '. ', erp_2)
+        if path_sp[3][4:] != '0':
+            raise ValueError(path, '. ', erp_3)
     else:
-        if np.all(path[1:] == np.zeros(2)):
-            return f'ddir{path[0]}'
-        elif np.all(np.array([path[0], path[2]]) == np.zeros(2)):
-            return f'ddir0_{path[1]}_0'
-        elif np.all(np.array([path[0], path[1]]) == np.zeros(2)):
-            return f'ddir0_0_{path[2]}'
-        else:
-            raise ValueError('Current Verson of PyTorTractor can handle only displacement of the form i00, 0i0 or 00i')
-
-
+        raise ValueError('Unrecognized path')
 #def momentum(string_value):
 #    if string_value == 'mom_ray_000':
 #        return 'px0_py0_pz0'
@@ -85,7 +97,6 @@ index_map = {
 
     (1,3,0): 'j',
     (1,3,1): 'k',
-    (1,3,2): 'l',
 
     (0,0,0): 'm',
     (0,0,1): 'n',
@@ -100,8 +111,7 @@ index_map = {
     (0,2,2): 'u',
 
     (0,3,0): 'v',
-    (0,3,1): 'w',
-    (0,3,2): 'x',
+    (0,3,1): 'w'
 }
 
 
@@ -120,7 +130,6 @@ spin_index_map = {
 
     (1,3,0): 'J',
     (1,3,1): 'K',
-    (1,3,2): 'L',
 
     (0,0,0): 'M',
     (0,0,1): 'N',
@@ -135,8 +144,17 @@ spin_index_map = {
     (0,2,2): 'U',
 
     (0,3,0): 'V',
-    (0,3,1): 'W',
-    (0,3,2): 'X',
+    (0,3,1): 'W'
+}
+MDT_index_map = {
+    (1,0): 'x',
+    (1,1): 'y',
+    (1,2): 'z',
+    (1,3): 'l',
+    (0,0): 'X',
+    (0,1): 'Y',
+    (0,2): 'Z',
+    (0,3): 'L'
 }
 
 
@@ -205,14 +223,14 @@ def get_best_device(use_gpu: bool = True, device_id: Optional[int] = None, verbo
             print(f"For Apple Silicon GPU support, ensure macOS 12.3+ and install: pip install torch torchvision torchaudio")
     return device
 
-
+'''
 def Tensor_Product(Qs):
     reshaped = [
         q.view(*([1] * (2 * i)), q.shape[0], q.shape[1], *([1] * (2 * (len(Qs) - i - 1))))
         for i, q in enumerate(Qs)
     ]
     return reduce(operator.mul, reshaped)
-
+'''
 
 def gamma(i, datatype):
     if i == 5:
@@ -249,13 +267,6 @@ def combine_all(all_info):
             product *= prdkt.item()
         res += (numerical_factor[dgrm_nmbr].item()) * product
     return res
-
-
-
-
-error01 = 'The Hadrons or Path_Wicktract cannot be None'
-error1  = 'Perambulators cannot be None. They must be of the form {Light: Perambulator_dict, Strange: Perambulator_dict, Charm: Perambulator_dict}'
-error02 = 'At least there must be either ModeTriplets or ModeDoublets'
 
 
 def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading = False, cplx128 = True):
@@ -332,6 +343,9 @@ def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selec
                 selected_pathes = Selected_Groups
         else:
             selected_pathes = [group for group in yunus1]
+        if any(group.split('_')[4].startswith("dlen") for group in selected_pathes):
+            test_the_path = [check_path_MDT(test_path) for test_path in selected_pathes]
+            del test_the_path
         for i, group in enumerate(selected_pathes):
             if i == 0:
                 if yunus1[group]['re'].ndim == 1:
@@ -370,6 +384,9 @@ def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selec
                 selected_pathes = Selected_Groups
         else:
             selected_pathes = [group for group in yunus1]
+        if any(group.split('_')[4].startswith("dlen") for group in selected_pathes):
+            test_the_path = [check_path_MDT(test_path) for test_path in selected_pathes]
+            del test_the_path
         for i, group in enumerate(selected_pathes):
             if i == 0:
                 if yunus1[group]['re'].ndim == 1:
@@ -409,7 +426,7 @@ def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selec
     print(r'MT_Tensor has been successfully constructed')
     return MT_SuperTensor_Dict
 
-def Prmp_Set(exp_prmp_container):
+def Prmp_Set(exp_prmp_container, Stack_List = None):
     Spin_Indices = []
     seen_hadron  = set()
     num_factor   = 1.0
@@ -423,6 +440,14 @@ def Prmp_Set(exp_prmp_container):
         if perambulator.getH_Bar() not in seen_hadron:
             seen_hadron.add(perambulator.getH_Bar())
             num_factor *= perambulator.getFF_H_Bar()
+    if Stack_List is not None:
+        vor_list = []
+        for stacked_index in Stack_List:
+            if stacked_index is not None:
+                vor_list.appned(stacked_index)
+        if len(vor_list) == 0:
+            raise ValueError('Something wrong with the stacked Modes')
+        Spin_Indices = vor_list + Spin_Indices
     return {'Spin_Indices': Spin_Indices, 'Numerical_Factor': num_factor}
 
            
@@ -431,7 +456,15 @@ def SpnFF_XTractor(full_cluster):
     #From each element of this list we extract: 1. Explicit-Spins. 2. Overall number
     return [Prmp_Set(exp_prmp_container) for exp_prmp_container in full_cluster]
     
-    
+def SpnFF_SXTractor(full_cluster, Stack_Lists):
+    #Full cluster is a list. Each element is a perambulator_container.
+    #From each element of this list we extract: 1. Explicit-Spins. 2. Overall number
+    #Stack_Lists is a list of lists of the stacked indices!
+    n = len(full_cluster)
+    m = len(Stack_Lists)
+    if n != m:
+        raise ValueError('Something wrong with the stacked Modes. Unequal number of combinations..')
+    return [Prmp_Set(full_cluster[i], Stack_List = Stack_Lists[i]) for i in range(n)]    
     
     
 def co_to_Hadorn_co(list_of_Hadrons, Full_Map_Of_Hadrons):

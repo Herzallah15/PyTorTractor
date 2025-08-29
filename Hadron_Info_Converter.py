@@ -9,36 +9,36 @@ from contractions_handler import *
 from Hadrontractions_Converter import *
 
 
-#(FileName = 'OpInfo/baryon_operators.h5', HadronPosition = (1,0), OpertorType = 'baryon_operators', Flavor = 'delta_uud',
-#Momentum = 'mom_ray_000', LGIrrep = 'Hg_1', Displacement = 'SS_0')
+
 
 er1 = 'In hadron you need to provide the following informations: HadronPosition, OpertorType, Flavor, Momentum, LGIrrep, Displacement'
 er2 = 'OpertorType must be either meson_operators or baryon_operators'
-def ddir(path):
+def ddir(path, dlen = None):
     if np.all(path == np.zeros(3)):
-        return 'ddir0'
+        if dlen is None:
+            path_final = 'ddir0'
+        elif dlen == 'dlen0' or dlen == 0:
+            path_final = 'ddir0_dlen0'
+        else:
+            raise ValueError('Hadron_Info_Converter: For dlen = 0/ dlen = dlen0, the displacement is expected to be zero.')
+        return path_final, None
     else:
         if np.all(path[1:] == np.zeros(2)):
-            return f'ddir{path[0]}'
+            path_final, Stack_I = f'ddir{path[0]}', 0
         elif np.all(np.array([path[0], path[2]]) == np.zeros(2)):
-            return f'ddir0_{path[1]}_0'
+            path_final, Stack_I = f'ddir{path[1]}', 1
         elif np.all(np.array([path[0], path[1]]) == np.zeros(2)):
-            return f'ddir0_0_{path[2]}'
+            path_final, Stack_I = f'ddir{path[2]}', 2
         else:
             raise ValueError('Current Verson of PyTorTractor can handle only displacement of the form i00, 0i0 or 00i')
+        if dlen is not None:
+            if isinstance(dlen, int):
+                dlen = 'dlen'+str(dlen)
+            path_final = path_final + '_' + dlen
+        return path_final, Stack_I
 
 
-#def momentum(string_value):
-#    if string_value == 'mom_ray_000':
-#        return 'px0_py0_pz0'
-
-#            "0" =>  0
-#            "+" =>  1
-#            "-" => -1
-#            "#" =>  2
-#            "=" => -2
-#            "T" =>  3
-#            "t" => -3
+#"0"=>0, "+"=> 1, "-"=>-1, "#"=>2, "="=>-2, "T"=>3, "t"=>-3
 mom_map = {0: '0', 1: '+', -1: '-', 2: '#', -2: '=', 3: 'T', -3: 't'}
 def sgn(x):
     if x > 0:
@@ -84,7 +84,6 @@ index_map = {
 
     (1,3,0): 'j',
     (1,3,1): 'k',
-    (1,3,2): 'l',
 
     (0,0,0): 'm',
     (0,0,1): 'n',
@@ -99,8 +98,7 @@ index_map = {
     (0,2,2): 'u',
 
     (0,3,0): 'v',
-    (0,3,1): 'w',
-    (0,3,2): 'x',
+    (0,3,1): 'w'
 }
 
 
@@ -119,7 +117,6 @@ spin_index_map = {
 
     (1,3,0): 'J',
     (1,3,1): 'K',
-    (1,3,2): 'L',
 
     (0,0,0): 'M',
     (0,0,1): 'N',
@@ -134,14 +131,23 @@ spin_index_map = {
     (0,2,2): 'U',
 
     (0,3,0): 'V',
-    (0,3,1): 'W',
-    (0,3,2): 'X',
+    (0,3,1): 'W'
+}
+MDT_index_map = {
+    (1,0): 'x',
+    (1,1): 'y',
+    (1,2): 'z',
+    (1,3): 'l',
+    (0,0): 'X',
+    (0,1): 'Y',
+    (0,2): 'Z',
+    (0,3): 'L'
 }
 
 
 class Hadron:
     def __init__(self, File_Info_Path = None, Hadron_Type = None, Hadron_Position = None, Flavor = None,
-          Momentum = None, LGIrrep = None, Displacement = None):
+          Momentum = None, LGIrrep = None, Displacement = None, dlen = None):
         self.File_Info_Path  = File_Info_Path
         self.Hadron_Type     = Hadron_Type
         self.Hadron_Position = Hadron_Position
@@ -149,6 +155,7 @@ class Hadron:
         self.Momentum        = Momentum
         self.LGIrrep         = LGIrrep
         self.Displacement    = Displacement
+        self.dlen            = dlen
         if None in (File_Info_Path, Hadron_Type, Hadron_Position, Flavor, Momentum, LGIrrep , Displacement):
             raise ValueError(er1)
         if Hadron_Type not in ['meson_operators', 'baryon_operators']:
@@ -185,13 +192,14 @@ class Hadron:
         for i in range(N_Combinations):
             c_info_i = spin_structures[i]
             q0, q1 = Hdrn + (0,), Hdrn + (1,)
-            comb_i = {q0: c_info_i[0], q1: c_info_i[1], Hdrn: {'Factor': coefficients[i], 'dis': c_info_i[-3:]} }
+            comb_i = {q0: c_info_i[0], q1: c_info_i[1], Hdrn: {'Factor': coefficients[i]} }
+            disp_i = ddir(c_info_i[-3:])
             if Spin_Displacement_N == 6:
                 q2         = Hdrn + (2,)
                 comb_i[q2] = c_info_i[2]
-                comb_i[Hdrn]['MomDis'] = {'MT': self.getMomentum_Value()+'_'+ ddir(c_info_i[-3:]) }
+                comb_i[Hdrn]['MomDis'] = {'MT': self.getMomentum_Value()+'_'+ disp_i[0], 'dis_dir':  disp_i[1]}
             elif Spin_Displacement_N ==5:
-                comb_i[Hdrn]['MomDis'] = {'MD': self.getMomentum_Value()+'_'+ ddir(c_info_i[-3:]) }
+                comb_i[Hdrn]['MomDis'] = {'MD': self.getMomentum_Value()+'_'+ disp_i[0], 'dis_dir':  disp_i[1]}
             else:
                 raise ValueError('Failed to extract the hadron informations *')
             list_info.append(comb_i)
@@ -264,25 +272,37 @@ class ExplicitPerambulator_Container_OneComb:
         hadrons_B     = [tuple(hadron.getH_Bar().tolist()) for hadron in non_ex_perambulators]
         hadrons_all   = hadrons_NB + hadrons_B
         hadrons_all   = set(hadrons_all)
-        mom_dis_paths = []
-        index_list    = []
+        mom_dis_paths, index_list = [], []
+        stack_Idxlist, stakout_index = [], ''
         for hadron in hadrons_all:
             q0, q1 = hadron + (0,), hadron + (1,)
-            if list(self.onecomb_info[hadron]['MomDis'].keys())[0] == 'MD':
-                link = str(hadron[0])+'D_'+ self.onecomb_info[hadron]['MomDis']['MD']
-                mom_dis_paths.append(link)
-                contraction_indices = index_map[q0] + index_map[q1]
-                index_list.append(contraction_indices)
-            elif list(self.onecomb_info[hadron]['MomDis'].keys())[0] == 'MT':
+            contraction_indices = index_map[q0] + index_map[q1]
+            MomDis_Info = self.onecomb_info[hadron]['MomDis']
+            stac_info = MomDis_Info['dis_dir']
+            if list(MomDis_Info.keys())[0] == 'MD':
+                link = str(hadron[0])+'D_'+ MomDis_Info['MD']
+            elif list(MomDis_Info.keys())[0] == 'MT':
                 q2 = hadron + (2,)
-                link = str(hadron[0])+'T_'+ self.onecomb_info[hadron]['MomDis']['MT']
-                mom_dis_paths.append(link)
-                contraction_indices = index_map[q0] + index_map[q1] + index_map[q2]
-                index_list.append(contraction_indices)
+                link = str(hadron[0])+'T_'+ MomDis_Info['MT']
+                contraction_indices = contraction_indices + index_map[q2]
             else:
                 raise ValueError('Failed to identiy the Modes')
+            if stac_info is not None:
+                contraction_indices = MDT_index_map[hadron] + contraction_indices
+                stakout_index += MDT_index_map[hadron]
+            mom_dis_paths.append(link)
+            index_list.append(contraction_indices)
+            stack_Idxlist.append(stac_info)
+        return {'mom_dis_info': mom_dis_paths, 'index_info': tuple(index_list),
+                'stacked_indices': stack_Idxlist, 'stackedout_indices': stakout_index}
+        #stack_Idxlist is now of the form [0, 1, None, 2,...]. It cannot made out of other numbers!
         #print({'mom_dis_info': mom_dis_paths, 'index_info': tuple(index_list)})
-        return {'mom_dis_info': mom_dis_paths, 'index_info': tuple(index_list)}
+        # At the end we have the following informations:
+        # mom_dis_info       = [path_MDT0, path_MDT1, ....]
+        # index_info         = [MDT0_FullIndices, MDT1_FullIndices, ...]
+        # stacked_indices    = [MDT0_Stacked_Index_Int, MDT1_Stacked_Index_Int, ...]
+        # stackedout_indices = MDT0_Stacked_Index_Str+MDT1_Stacked_Index_Str+...
+
     def getExplicit_Perambulators(self):
         non_ex_perambulators = self.perambulator_container.getPerambulators()
         return [ExplicitPerambulator(P, self.onecomb_info) for P in non_ex_perambulators]
@@ -304,14 +324,35 @@ class Final_Perambulator_Container:
         indices_info    = set()#We expect, for one Final_Container, i.e., a container with all possiblities, that 
                                #the indizes of the laphs do not change, since the final container is simply one conainer with
                                #all possiblie spin combinations! However, the modes themselves could change in regard of momentum/dis
-        all_momdis_info = []#Here we hfor each term in getExplicit_Perambulator_Containers the corresponding Mode_Informations!
+        outer_StIndices ,stack_index_info, tracking_stack  = set(), [], set()
         for onecomb_info in self.all_comb:
             exp_result_mode_info = ExplicitPerambulator_Container_OneComb(self.perambulator_container, onecomb_info).getModeInfos()
-            all_momdis_info.append(exp_result_mode_info['mom_dis_info'])
             tracking_momdis.add(tuple(exp_result_mode_info['mom_dis_info']))
             indices_info.add(tuple(exp_result_mode_info['index_info']))
+            outer_StIndices.add(exp_result_mode_info['stackedout_indices'])
+            stack_index_info.append(exp_result_mode_info['stacked_indices'])
+            tracking_stack.add(tuple(exp_result_mode_info['stacked_indices']))
         if len(indices_info) != 1:
             raise ValueError('Failed to extrac the indices of the Modes')
-        if len(tracking_momdis) == 1:
-            all_momdis_info = list(tracking_momdis)[0]
-        return {'Mode_Index_Info': list(indices_info)[0], 'MDT_Info': all_momdis_info}
+        indices_information = list(indices_info)[0]
+        if len(tracking_momdis) != 1:
+            raise ValueError('Failed to extract the pathes of the Modes')
+        all_momdis_info = list(tracking_momdis)[0]
+        if len(outer_StIndices) !=1:
+            raise ValueError('Failed to find/order the displaced Modes for all spin/dis combinations')
+        outer_StIndices = list(outer_StIndices)[0]
+        if len(tracking_stack) == 1:
+            if (all(item == None for item in stack_index_info[0])):
+                if outer_StIndices != '':
+                    ValueError('Failed to extract MDT with one displacement combination')
+                    #here we should reproduced what we had until now!
+                return {'Mode_Index_Info': indices_information, 'MDT_Info': all_momdis_info, 'MDT_Stack': None}
+            else:
+                #here we should have the same as we had till now but with extra specification of the stacked indices in the Modes!
+                for i, index_str in enumerate(stack_index_info[0]):
+                    if index_str is not None:
+                        indices_information[i] = indices_information[i][1:]
+                return {'Mode_Index_Info': indices_information, 'MDT_Info': all_momdis_info,' MDT_Stack': tuple(list(tracking_stack)[0])}
+        else:
+            return {'Mode_Index_Info': indices_information, 'MDT_Info': all_momdis_info,
+                    'MDT_Stack': {'tr_ndcs' : outer_StIndices, 'MDT_II': stack_index_info}}

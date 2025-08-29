@@ -53,19 +53,43 @@ class PyCorrTorch:
         cntrctns_cntr = 0
         clusters_with_kies_copy = []
         for full_cluster in self.clusters_with_kies:
-            DT_Index      = ','.join(full_cluster[1][0]['Mode_Index_Info'])
-            M_Tensors     = MDT_Laph(MDT_Info = full_cluster[1][0]['MDT_Info'], snktime = self.SinkTime, 
-                                     srctime = self.SourceTime, ModeD = ModeDoublets, ModeT = ModeTriplets)
             extractor     = Perambulator_Laph(All_Perambulators, full_cluster[1][1][0], self.SinkTime, self.SourceTime)
             prmp_indx_In  = extractor['index_In']
             prmp_indx_Ou  = extractor['index_Out']
-            try:
-                results   = torch.einsum(f'{DT_Index},{prmp_indx_In}->{prmp_indx_Ou}', *M_Tensors, *extractor['Tensor'])
-            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
-                raise TypeError('That should not happen!!!!!!')
-            all_info = SpnFF_XTractor(full_cluster[1][1])
-            results_factors = torch.stack([results[*i['Spin_Indices']] * i['Numerical_Factor'] for i in all_info])
-            results_summed = torch.sum(results_factors, dim=0)
+            DT_Index      = ','.join(full_cluster[1][0]['Mode_Index_Info'])
+            M_Tensors     = MDT_Laph(MDT_Info = full_cluster[1][0]['MDT_Info'], snktime = self.SinkTime, 
+                                     srctime = self.SourceTime, ModeD = ModeDoublets, ModeT = ModeTriplets)
+            
+            stack_info    = full_cluster[1][0]['MDT_Stack']
+            DT_Index = ','.join(full_cluster[1][0]['Mode_Index_Info'])
+            if (stack_info is  None) or isinstance(stack_info, tuple):
+                no_stacking  = True
+            else:
+                no_stacking = False
+            if isinstance(stack_info, tuple):
+                N = len(M_Tensors)
+                for i in range(N):
+                    stacked_index = stack_info[i]
+                    if stacked_index is not None:
+                        M_Tensors[i] = M_Tensors[i][stacked_index]
+            if no_stacking:
+                try:
+                    results   = torch.einsum(f'{DT_Index},{prmp_indx_In}->{prmp_indx_Ou}', *M_Tensors, *extractor['Tensor'])
+                except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
+                    raise TypeError('That should not happen!!!!!!')
+                all_info = SpnFF_XTractor(full_cluster[1][1])
+                results_factors = torch.stack([results[*i['Spin_Indices']] * i['Numerical_Factor'] for i in all_info])
+                results_summed = torch.sum(results_factors, dim=0)
+            else:
+                MDTD_indx_Ou     = stack_info['tr_ndcs']
+                stack_index_info = stack_info['MDT_II']
+                try:
+                    results   = torch.einsum(f'{DT_Index},{prmp_indx_In}->{MDTD_indx_Ou}{prmp_indx_Ou}', *M_Tensors, *extractor['Tensor'])
+                except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
+                    raise TypeError('That should not happen!!!!!!')
+                all_info = SpnFF_SXTractor(full_cluster[1][1], stack_index_info)
+                results_factors = torch.stack([results[*i['Spin_Indices']] * i['Numerical_Factor'] for i in all_info])
+                results_summed = torch.sum(results_factors, dim=0)
             clusters_with_kies_copy.append((full_cluster[0], results_summed))
             print(cntrctns_cntr)
             cntrctns_cntr+=1

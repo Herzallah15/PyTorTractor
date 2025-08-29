@@ -35,7 +35,7 @@ class Perambulator:
             return [tuple(self.getH().tolist())]
     def __eq__(self, other):
         if isinstance(other, Perambulator):
-            return np.all(self.getQ() == other.getQ()) and np.all(self.getQ_Bar() == other.getQ_Bar())
+            return np.all(self.getQ() == other.getQ()) and np.all(self.getQ_Bar() == other.getQ_Bar()) and (self.getFlvr() == other.getFlvr())
         else:
             raise TypeError('Perambulator-typed object can be compared with only perambulator-typed one!')
     def __mul__(self, other):
