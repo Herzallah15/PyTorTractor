@@ -456,6 +456,52 @@ def pick_combis(hadron_cluster, all_combinations_map):
         raise ValueError('Failed to extract the cluster')
 
 
+def Perambulator_Laph(all_perambulators, exp_prmp_container, snktime, srctime):
+    Prmp_Indices_In  = ''
+    Prmp_Indices_Out = ''
+    Prmp_Tensors = []
+    for perambulator in exp_prmp_container:
+        Q_Info, Q_Bar_Info = perambulator.getQ(), perambulator.getQ_Bar()
+        Prmp_Indices_In   += spin_index_map[Q_Info] + spin_index_map[Q_Bar_Info]
+        Prmp_Indices_In   += index_map[Q_Info] + index_map[Q_Bar_Info] + ','
+        Prmp_Indices_Out  += spin_index_map[Q_Info] + spin_index_map[Q_Bar_Info]
+        p_left, p_right   = perambulator.getH()[0], perambulator.getH_Bar()[0]
+        prmp_flavor       = perambulator.getFlavor()
+        if p_left   == 1 and p_right == 0:
+            time    = f'srcTime{srctime}_snkTime{snktime}'
+        elif p_left == 0 and p_right == 1:
+            time    = f'srcTime{snktime}_snkTime{srctime}'
+        elif p_left == 1 and p_right == 1:
+            time    = f'srcTime{snktime}_snkTime{snktime}'
+        elif p_left == 0 and p_right == 0:
+            time    = f'srcTime{srctime}_snkTime{srctime}'
+        else:
+            raise ValueError('Error in extracting perambulators from the Perambulator_Tensor_Dict')
+        Prmp_Tensors.append(all_perambulators[prmp_flavor][time])
+    return {'index_In': Prmp_Indices_In[:-1], 'index_Out': Prmp_Indices_Out, 'Tensor': Prmp_Tensors}
+
+def MDT_Laph(MDT_Info = None, snktime = None, srctime=None, ModeD = None, ModeT = None):
+    M_Tensors = []
+    for path in MDT_Info:
+        if path[0] == '0':
+            final_path = path[3:]+'_t'+str(srctime)
+            if path[1] == 'D':
+                M_Tensors.append(ModeD[final_path].conj())
+            elif path[1] == 'T':
+                M_Tensors.append(ModeT[final_path].conj())
+            else:
+                raise ValueError('Failed to identiy type of the Mode')
+        elif path[0] == '1':
+            final_path = path[3:]+'_t'+str(snktime)
+            if path[1] == 'D':
+                M_Tensors.append(ModeD[final_path])
+            elif path[1] == 'T':
+                M_Tensors.append(ModeT[final_path])
+            else:
+                raise ValueError('Failed to identiy type of the Mode')
+        else:
+            raise ValueError('Failed to identify sink and source times')
+    return M_Tensors
 
 #comment_01:
 # self.clusters_with_kies contains now the following: [((outer_key, inner_key), Topology), ....]
