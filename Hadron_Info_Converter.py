@@ -13,7 +13,7 @@ from Hadrontractions_Converter import *
 
 er1 = 'In hadron you need to provide the following informations: HadronPosition, OpertorType, Flavor, Momentum, LGIrrep, Displacement'
 er2 = 'OpertorType must be either meson_operators or baryon_operators'
-def ddir(path, dlen = None):
+def ddir(path, DT_Specifier = None, dlen = None):
     if np.all(path == np.zeros(3)):
         if dlen is None:
             path_final = 'ddir0'
@@ -22,7 +22,7 @@ def ddir(path, dlen = None):
         else:
             raise ValueError('Hadron_Info_Converter: For dlen = 0/ dlen = dlen0, the displacement is expected to be zero.')
         return path_final, None
-    else:
+    if DT_Specifier == 'Triplet':
         if np.all(path[1:] == np.zeros(2)):
             path_final, Stack_I = f'ddir{path[0]}', 0
         elif np.all(np.array([path[0], path[2]]) == np.zeros(2)):
@@ -30,12 +30,24 @@ def ddir(path, dlen = None):
         elif np.all(np.array([path[0], path[1]]) == np.zeros(2)):
             path_final, Stack_I = f'ddir{path[2]}', 2
         else:
-            raise ValueError('Current Verson of PyTorTractor can handle only displacement of the form i00, 0i0 or 00i')
+            raise ValueError('Current Verson of PyTorTractor can handle displaced triplets only of the form i00, 0i0 or 00i')
         if dlen is not None:
             if isinstance(dlen, int):
                 dlen = 'dlen'+str(dlen)
             path_final = path_final + '_' + dlen
         return path_final, Stack_I
+    elif DT_Specifier == 'Doublet':
+        if np.all(np.array([path[0], path[2]]) == np.zeros(2)):
+            path_final, Stack_I = f'ddir{path[1]}', None
+        else:
+            raise ValueError('Current Verson of PyTorTractor can handle displaced doublets only of the form 0i0')
+        if dlen is not None:
+            if isinstance(dlen, int):
+                dlen = 'dlen'+str(dlen)
+            path_final = path_final + '_' + dlen
+        return path_final, Stack_I
+
+
 
 
 #"0"=>0, "+"=> 1, "-"=>-1, "#"=>2, "="=>-2, "T"=>3, "t"=>-3
@@ -193,12 +205,13 @@ class Hadron:
             c_info_i = spin_structures[i]
             q0, q1 = Hdrn + (0,), Hdrn + (1,)
             comb_i = {q0: c_info_i[0], q1: c_info_i[1], Hdrn: {'Factor': coefficients[i]} }
-            disp_i = ddir(c_info_i[-3:])
             if Spin_Displacement_N == 6:
+                disp_i = ddir(c_info_i[-3:], DT_Specifier = 'Triplet', dlen = self.dlen)
                 q2         = Hdrn + (2,)
                 comb_i[q2] = c_info_i[2]
                 comb_i[Hdrn]['MomDis'] = {'MT': self.getMomentum_Value()+'_'+ disp_i[0], 'dis_dir':  disp_i[1]}
             elif Spin_Displacement_N ==5:
+                disp_i = ddir(c_info_i[-3:], DT_Specifier = 'Doublet', dlen = self.dlen)
                 comb_i[Hdrn]['MomDis'] = {'MD': self.getMomentum_Value()+'_'+ disp_i[0], 'dis_dir':  disp_i[1]}
             else:
                 raise ValueError('Failed to extract the hadron informations *')
