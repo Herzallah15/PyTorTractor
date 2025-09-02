@@ -372,7 +372,7 @@ def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selec
         data_type = torch.complex128
     else:
         data_type = torch.complex64
-    if (Use_Triplet_Identity is not None) and not isinstance(bool, str, set, list, tuple):
+    if (Use_Triplet_Identity is not None) and not isinstance(Use_Triplet_Identity, (bool, str, set, list, tuple)):
         raise TypeError(f'The argument Use_Triplet_Identity can be either bool, str, set, list or tuple!')
     MT_SuperTensor_Dict = {}
     with h5py.File(Path_ModeTriplet, 'r') as yunus:
@@ -419,10 +419,10 @@ def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selec
         for group in re_construct_group:
             if group.split('_')[3].split('ddir')[1] != '0':
                 displacement_q2 = group.split('ddir')[0]+'ddir0_'+group.split('_')[3].split('ddir')[1]+'_0_'+group.split('_')[-1]
-                displacement_q3 = group.split('ddir')[0]+'ddir0_0_'+group.split('_')[3].split('ddir')[1]+'_'+group.split('_')[-1]
+                displacement_q3 = group.split('ddir')[0]+'ddir00_'+group.split('_')[3].split('ddir')[1]+'_'+group.split('_')[-1]
                 MT_SuperTensor_Dict[displacement_q2] = -1 * MT_SuperTensor_Dict[group].permute(1,0,2)
                 MT_SuperTensor_Dict[displacement_q3] = MT_SuperTensor_Dict[group].permute(2,0,1)
-                print(f'The groups {displacement_q2} and {displacement_q3} have been constructed from {group}')
+                print(f'The groups {displacement_q2} and {displacement_q3} have been constructed from {group}')  
     print(r'MT_Tensor has been successfully constructed')
     return MT_SuperTensor_Dict
 
@@ -455,7 +455,7 @@ def SpnFF_XTractor(full_cluster):
     #Full cluster is a list. Each element is a perambulator_container.
     #From each element of this list we extract: 1. Explicit-Spins. 2. Overall number
     return [Prmp_Set(exp_prmp_container) for exp_prmp_container in full_cluster]
-    
+'''    
 def SpnFF_SXTractor(full_cluster, Stack_Lists):
     #Full cluster is a list. Each element is a perambulator_container.
     #From each element of this list we extract: 1. Explicit-Spins. 2. Overall number
@@ -465,7 +465,7 @@ def SpnFF_SXTractor(full_cluster, Stack_Lists):
     if n != m:
         raise ValueError('Something wrong with the stacked Modes. Unequal number of combinations..')
     return [Prmp_Set(full_cluster[i], Stack_List = Stack_Lists[i]) for i in range(n)]    
-    
+'''    
     
 def co_to_Hadorn_co(list_of_Hadrons, Full_Map_Of_Hadrons):
     #list_of_hadrons is of the form ((1,0), ...)
@@ -491,13 +491,19 @@ def pick_combis(hadron_cluster, all_combinations_map):
 
 def Perambulator_Laph(all_perambulators, exp_prmp_container, snktime, srctime):
     Prmp_Indices_In  = ''
-    Prmp_Indices_Out = ''
     Prmp_Tensors = []
+    seen_hadron  = set()
     for perambulator in exp_prmp_container:
+        num_factor   = 1.0
+        if perambulator.getH() not in seen_hadron:
+            seen_hadron.add(perambulator.getH())
+            num_factor *= perambulator.getFF_H()
+        if perambulator.getH_Bar() not in seen_hadron:
+            seen_hadron.add(perambulator.getH_Bar())
+            num_factor *= perambulator.getFF_H_Bar()
+        s,s_Bar = perambulator.getS() - 1, perambulator.getS_Bar() - 1
         Q_Info, Q_Bar_Info = perambulator.getQ(), perambulator.getQ_Bar()
-        Prmp_Indices_In   += spin_index_map[Q_Info] + spin_index_map[Q_Bar_Info]
         Prmp_Indices_In   += index_map[Q_Info] + index_map[Q_Bar_Info] + ','
-        Prmp_Indices_Out  += spin_index_map[Q_Info] + spin_index_map[Q_Bar_Info]
         p_left, p_right   = perambulator.getH()[0], perambulator.getH_Bar()[0]
         prmp_flavor       = perambulator.getFlavor()
         if p_left   == 1 and p_right == 0:
@@ -510,8 +516,8 @@ def Perambulator_Laph(all_perambulators, exp_prmp_container, snktime, srctime):
             time    = f'srcTime{srctime}_snkTime{srctime}'
         else:
             raise ValueError('Error in extracting perambulators from the Perambulator_Tensor_Dict')
-        Prmp_Tensors.append(all_perambulators[prmp_flavor][time])
-    return {'index_In': Prmp_Indices_In[:-1], 'index_Out': Prmp_Indices_Out, 'Tensor': Prmp_Tensors}
+        Prmp_Tensors.append(all_perambulators[prmp_flavor][time][s, s_Bar, :, :] * num_factor)
+    return {'index': Prmp_Indices_In[:-1], 'Tensor': Prmp_Tensors}
 
 def MDT_Laph(MDT_Info = None, snktime = None, srctime=None, ModeD = None, ModeT = None):
     M_Tensors = []
