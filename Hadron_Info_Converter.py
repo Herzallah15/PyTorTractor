@@ -180,6 +180,8 @@ class Hadron:
         return tuple(self.Hadron_Position)
     def getFlavor(self):
         return self.Flavor
+    def getMomentum(self):
+        return self.Momentum
     def getMomentum_Path(self):
         return momentum(self.Momentum)['mom_path']
     def getMomentum_Value(self):
@@ -188,6 +190,8 @@ class Hadron:
         return self.LGIrrep
     def getDisplacement(self):
         return self.Displacement
+    def getDlen(self):
+        return self.dlen
     def getInfo(self):
         with h5py.File(self.getFile_Info_Path(), 'r') as info_container:
             ht                   = self.getHadron_Type()
@@ -217,6 +221,33 @@ class Hadron:
                 raise ValueError('Failed to extract the hadron informations *')
             list_info.append(comb_i)
         return list_info
+
+        def __mul__(self, other):
+            if isinstance(other, TwoHadron):
+                T_Mul = {}
+                for i in range(other.getN()):
+                    hdrn123 = other.getallCombi()[f'combi_{i}']['Hadrons'] + [self]
+                    ForFactor = other.getallCombi()[f'combi_{i}']['Factor']
+                    T_Mul[f'combi_{i}'] = {'Hadrons': hdrn123, 'Factor': ForFactor}
+                return T_Mul
+            elif isinstance(other, Hadron):
+                return {'combi_0': {'Hadrons': [self, other], 'Factor': 1} }
+            elif isinstance(other, dict):
+                T_Mul = {}
+                if not all(i.startswith('combi_') for i in other):
+                    raise TypeError('Undefined multiplicaton with a hadron object')
+                for i, comb_y in enumerate(other):
+                    hdrns   = [self] + other[comb_y]['Hadrons']
+                    FFactor = other[comb_y]['Factor']
+                    T_Mul[f'combi_{i}'] = {'Hadrons': hdrns, 'Factor': FFactor}
+                return T_Mul
+        def __rmul__(self, other):
+            if isinstance(other, TwoHadron):
+                return self * other
+            elif isinstance(other, dict):
+                return self * other
+            else:
+                raise TypeError('Undefined multiplication with a single-hadron operator')
 
 def hadron_info_multiplier(*hadrons):
     hadrons = [hadron.getInfo() for hadron in hadrons]

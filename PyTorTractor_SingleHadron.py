@@ -1,7 +1,7 @@
 from PyTorDefinitions import *
 import os, psutil
 
-class PyCorrTorch:
+class PyCorrTorch_SingleCor:
     def __init__(self, SinkTime = None, SourceTime = None, 
                  Hadrons = None, Path_Wicktract = None):
         self.SinkTime          = SinkTime
@@ -43,7 +43,7 @@ class PyCorrTorch:
                                for inner_key, prpm_container in inner_dict.items()]
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
 
-    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
+    def TorchTractor_SingleCor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
         if (ModeDoublets is None) and (ModeTriplets is None):
