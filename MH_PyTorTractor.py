@@ -1,4 +1,4 @@
-from PyTorTractor *
+from Hadron_Info_Converter import *
 
 class TwoHadron:
     def __init__(self, File_Info_Path = None, Total_Momentum = None, LGIrrep = None, Hadron1 = None, Hadron2 = None, OpNum = None):

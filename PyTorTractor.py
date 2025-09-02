@@ -1,4 +1,4 @@
-from PyCorrTorch_SingleCor import *
+from PyTorTractor_SingleHadron import *
 from MH_PyTorTractor import *
 
 class PyCorrTorch():
@@ -9,7 +9,7 @@ class PyCorrTorch():
         self.Path_Wicktract    = Path_Wicktract
 
         Decomposed_Hadrons = Hadrons[0]
-        for hdrn in self.Hadrons[1:]:
+        for hdrn in Hadrons[1:]:
             Decomposed_Hadrons *= hdrn
         self.Hadrons_Map = Decomposed_Hadrons
         '''
@@ -24,7 +24,7 @@ class PyCorrTorch():
         for i, combi in enumerate(self.Hadrons_Map):
             print('______')
             hadrons    = self.Hadrons_Map[combi]['Hadrons']
-            num_Factor = self.Hadrons_Map[combi]['ForFactor']
+            num_Factor = self.Hadrons_Map[combi]['Factor']
             do_contration0 = PyCorrTorch_SingleCor(SinkTime = self.SinkTime, SourceTime = self.SourceTime, 
                                                    Hadrons = hadrons, Path_Wicktract = self.Path_Wicktract)
             do_contration1 = do_contration0.TorchTractor_SingleCor(All_Perambulators = All_Perambulators, 
