@@ -1,5 +1,4 @@
 from PyTorTractor_SingleHadron import *
-from MH_PyTorTractor import *
 
 class PyCorrTorch():
     def __init__(self, SinkTime = None, SourceTime = None, 

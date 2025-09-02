@@ -1,5 +1,33 @@
 from Hadron_Info_Converter import *
-
+mom_map = {0: '0', 1: '+', -1: '-', 2: '#', -2: '=', 3: 'T', -3: 't'}
+def sgn(x):
+    if x > 0:
+        return '+'
+    elif x<0:
+        return '-'
+    else:
+        return '0'
+def momentum(p_momentum):
+    p = list(p_momentum)
+    px, py, pz = p
+    pab = [np.abs(pi) for pi in p]
+    pxa, pya, pza = pab
+    p_value = f'px{px}_py{py}_pz{pz}'
+    string_value = 'mom_ray_'
+    if all(pi == 0 for pi in p):
+        return {'mom_path': 'mom_ray_000', 'int_value': p_value}
+    if len(set(pab)) == 1:#three terms are equal
+        string_value += f'{sgn(px)}{sgn(py)}{sgn(pz)}'
+    elif len(set(pab)) == 2:#two terms are equal
+        if pxa == pya:
+            string_value += f'{sgn(px)}{sgn(py)}{mom_map[pz]}'
+        elif pxa == pza:
+            string_value += f'{sgn(px)}{mom_map[py]}{sgn(pz)}'
+        elif pya == pza:
+            string_value += f'{mom_map[px]}{sgn(py)}{sgn(pz)}'    
+    else:#none of the terms are equal!
+        string_value += f'{mom_map[px]}{mom_map[py]}{mom_map[pz]}'
+    return {'mom_path': string_value, 'int_value': p_value}
 class TwoHadron:
     def __init__(self, File_Info_Path = None, Total_Momentum = None, LGIrrep = None, Hadron1 = None, Hadron2 = None, OpNum = None):
         self.File_Info_Path = File_Info_Path
