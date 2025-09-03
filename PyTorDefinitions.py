@@ -328,7 +328,7 @@ def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading =
     return P_SuperTenspr_Dict
 
 
-def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selected_Groups = None):
+def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Doublet_Identity = None):
     if cplx128:
         data_type = torch.complex128
     else:
@@ -363,7 +363,24 @@ def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selec
             else:
                 MD_SuperTensor_Dict[group] = torch.complex(
                     torch.from_numpy(yunus1[group]['re'][:]),
-                    torch.from_numpy(yunus1[group]['im'][:])).to(dtype=data_type).to(Device)              
+                    torch.from_numpy(yunus1[group]['im'][:])).to(dtype=data_type).to(Device)
+    if Use_Doublet_Identity is not None:
+        if isinstance(Use_Doublet_Identity, bool):
+            if Use_Doublet_Identity:
+                re_construct_group = [group for group in MD_SuperTensor_Dict]
+            else:
+                print(r'MD_Tensor has been successfully constructed')
+                return MD_SuperTensor_Dict
+        elif isinstance(Use_Doublet_Identity, str):
+            re_construct_group = [Use_Doublet_Identity]
+        elif isinstance(Use_Doublet_Identity, (set, list, tuple)):
+            re_construct_group = list(Use_Doublet_Identity)
+        for group in re_construct_group:
+            use_on = group.split('_')[3].split('ddir')[1]
+            if (use_on != '0') and (int(use_on) > 0):
+                displacement_mq = group.split('ddir')[0]+'ddir-'+use_on+'_'+group.split('_')[-1]
+                MD_SuperTensor_Dict[displacement_mq] = MD_SuperTensor_Dict[group].conj().T
+                print(f'The group {displacement_mq} has been constructed from {group}')
     print(r'MD_Tensor has been successfully constructed')
     return MD_SuperTensor_Dict
 

@@ -55,9 +55,10 @@ class PyCorrTorch_SingleCor:
         for full_cluster in self.clusters_with_kies:
             prmp_indx     = Perambulator_Laph(All_Perambulators, full_cluster[1][1][0], self.SinkTime, self.SourceTime)['index']
             res_dtype     = Perambulator_Laph(All_Perambulators, full_cluster[1][1][0], self.SinkTime, self.SourceTime)['Tensor'][0].dtype
+            res_device    = Perambulator_Laph(All_Perambulators, full_cluster[1][1][0], self.SinkTime, self.SourceTime)['Tensor'][0].device
             DT_Index      = ','.join(full_cluster[1][0]['Mode_Index_Info'])
             DT_AllPaths   = full_cluster[1][0]['MDT_Info']
-            result = torch.tensor(0.0, dtype = res_dtype)
+            result = torch.tensor(0.0, dtype = res_dtype, device = res_device)
             N = len(full_cluster[1][1])
             if N != len(DT_AllPaths):
                 raise ValueError('Failed to combin the Modes with the Perambulators!')
