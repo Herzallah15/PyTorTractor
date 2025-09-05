@@ -1120,6 +1120,7 @@ def Omega(mntm1 = None):
     else:
         mntm = mntm1
     return hdrn(1, 'omega', mntm, 's', 's', 's', barness = fls)
+'''
 def Kaon(ispin, mntm1 = None):
     if mntm1 == None:
         mntm = 1
@@ -1127,6 +1128,28 @@ def Kaon(ispin, mntm1 = None):
         mntm = mntm1
     state = {'+': hdrn(1, 'K+', mntm, 'u', 'sB', barness = fls), 0:  hdrn(1, 'K0', mntm, 'd', 'sB', barness = fls)
             , '-':  hdrn(-1, 'K-', mntm, 'uB', 's', barness = fls)}
+    if ispin in state:
+        return state[ispin]
+    else:
+        raise TypeError(f"Error: First argument of kaon must be the its type, i.e. +, - or 0 ")
+'''
+def Kaon(ispin, mntm1 = None):
+    if mntm1 == None:
+        mntm = 1
+    else:
+        mntm = mntm1
+    state = {'+': hdrn(1, 'K', mntm, 'sB', 'u', barness = fls), 0:  hdrn(1, 'K', mntm, 'sB', 'd', barness = fls)}
+    if ispin in state:
+        return state[ispin]
+    else:
+        raise TypeError(f"Error: First argument of kaon must be the its type, i.e. +, - or 0 ")
+
+def KaonC(ispin, mntm1 = None):
+    if mntm1 == None:
+        mntm = 1
+    else:
+        mntm = mntm1
+    state = {'+': hdrn(1, 'Kc', mntm, 'dB', 's', barness = fls), 0:  hdrn(-1, 'Kc', mntm, 'uB', 's', barness = fls)}
     if ispin in state:
         return state[ispin]
     else:
@@ -1142,7 +1165,7 @@ def Pion(ispin, mntm1 = None):
     if ispin in state:
         return state[ispin]
     else:
-        raise TypeError(f"Error: First argument of kaon must be the its type, i.e. +, - or 0 ")
+        raise TypeError(f"Error: First argument of Pion must be the its type, i.e. 1, -1 or 0 ")
 
 
 def sigma(ispin, mntm1 = None):
