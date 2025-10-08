@@ -28,7 +28,7 @@ def ddir(path, DT_Specifier = None, dlen = None):
         elif np.all(np.array([path[0], path[2]]) == np.zeros(2)):
             path_final = f'ddir0_{path[1]}_0'
         elif np.all(np.array([path[0], path[1]]) == np.zeros(2)):
-            path_final = f'ddir_00{path[2]}'
+            path_final = f'ddir00_{path[2]}'
         else:
             raise ValueError('Current Verson of PyTorTractor can handle displaced triplets only of the form i00, 0i0 or 00i')
         if dlen is not None:

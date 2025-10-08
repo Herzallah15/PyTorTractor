@@ -435,10 +435,14 @@ def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selec
             re_construct_group = list(Use_Triplet_Identity)
         for group in re_construct_group:
             if group.split('_')[3].split('ddir')[1] != '0':
-                displacement_q2 = group.split('ddir')[0]+'ddir0_'+group.split('_')[3].split('ddir')[1]+'_0_'+group.split('_')[-1]
-                displacement_q3 = group.split('ddir')[0]+'ddir00_'+group.split('_')[3].split('ddir')[1]+'_'+group.split('_')[-1]
+                if group.split('_')[-2][:4]=='dlen':
+                    dln = group.split('_')[-2]
+                else:
+                    dln = ''
+                displacement_q2 = group.split('ddir')[0]+'ddir0_'+group.split('_')[3].split('ddir')[1]+'_0_'+ dln + '_' + group.split('_')[-1]
+                displacement_q3 = group.split('ddir')[0]+'ddir00_'+group.split('_')[3].split('ddir')[1]+'_' + dln + '_'+ group.split('_')[-1]
                 MT_SuperTensor_Dict[displacement_q2] = -1 * MT_SuperTensor_Dict[group].permute(1,0,2)
-                MT_SuperTensor_Dict[displacement_q3] = MT_SuperTensor_Dict[group].permute(2,0,1)
+                MT_SuperTensor_Dict[displacement_q3] = torch.einsum('kij->ijk', MT_SuperTensor_Dict[group])
                 print(f'The groups {displacement_q2} and {displacement_q3} have been constructed from {group}')  
     print(r'MT_Tensor has been successfully constructed')
     return MT_SuperTensor_Dict
