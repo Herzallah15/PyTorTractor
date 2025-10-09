@@ -1161,7 +1161,7 @@ def Pion(ispin, mntm1 = None):
     else:
         mntm = mntm1
     state = {1: hdrn(1, 'Pi', mntm, 'dB', 'u', barness = fls), -1:  hdrn(-1, 'Pi', mntm, 'uB', 'd', barness = fls)
-            , 0:  hdrn(1/2**(1/2), 'Pi0', mntm, 'dB', 'd', barness = fls) + hdrn(-1/2**(1/2), 'Pi', mntm, 'uB', 'u', barness = fls)}
+            , 0:  hdrn(1/2**(1/2), 'Pi0', mntm, 'dB', 'd', barness = fls) + hdrn(-1/2**(1/2), 'Pi0', mntm, 'uB', 'u', barness = fls)}
     if ispin in state:
         return state[ispin]
     else:
@@ -1676,6 +1676,9 @@ class OpTimeSlice:
             spf[counter] = flavor
             counter += 1
         return [spf, nr_of_qrks]
+    def Laudtracto(self):
+        qrks_on_time1 = self.organizeq_qb(0)
+        return wicktract(qrks_on_time1).Laudtracto()
     def __mul__(self, other):
         if isinstance(other, OpTimeSlice):
             qrks_on_time1 = self.organizeq_qb(0)
@@ -1886,7 +1889,9 @@ class wicktract:
             return fnl_mp
         sp0   = self.extract_maps()
         karl  = len(sp0)
-        if karl == 2:
+        if karl == 1:
+            return sp0[0]
+        elif karl == 2:
             return maps_lines_multiplier(sp0[0], sp0[1])
         elif karl == 3:
             frstwmps = maps_lines_multiplier(sp0[0], sp0[1])
@@ -1956,7 +1961,9 @@ class wicktract:
             for dgr_container in final_result:
                 total_diagrams.extend(dgr_container.gdiagrams())
             print(f"All diagrams are added into one correlator. There are {len(total_diagrams)} diagrams")
-            sp1 = dgrm_container(*total_diagrams).gdgrms()
+            #sp1 = dgrm_container(*total_diagrams).gdgrms()
+            sp1 = dgrm_container(*total_diagrams)
+            do_extra_simplification = True
             print(" ")
             print("**********************************************")
         elif len(sp1) == 1:
@@ -1964,13 +1971,16 @@ class wicktract:
             total_diagrams = []
             for dgr_container in final_result:
                 total_diagrams.extend(dgr_container.gdiagrams())
-            sp1 = dgrm_container(*total_diagrams).gdiagrams()
+            #sp1 = dgrm_container(*total_diagrams).gdiagrams()
+            sp1 = dgrm_container(*total_diagrams)
+            do_extra_simplification = False
             print(" ")
             print("********")
         else:
             raise TypeError("Failed to identity correlators")
         extract_colbaryons_pairs = self.squark_pair()
         if len(extract_colbaryons_pairs) != 0:
+            sp1 = sp1.gdgrms() if do_extra_simplification else sp1.gdiagrams()
             simsp1   = []
             seen     = set()
             counter  = 0
@@ -1993,11 +2003,11 @@ class wicktract:
                 if i1 % 10 == 0 and i1 != 0:
                     print(f"****** Simplifying went through diagram {i1} ******")
             print(f" {counter} diagrams have been reduced")
-            print("To visualize the diagrams use the attribute bulavision() ")
-            return dgrm_container(*simsp1).gdiagrams()
+            sp1 = dgrm_container(*simsp1).gdgrms() if do_extra_simplification else dgrm_container(*simsp1).gdiagrams()
         else:
-            print("To visualize the diagrams use the attribute bulavision() ")
-            return sp1
+            sp1 = sp1.gdgrms() if do_extra_simplification else sp1.gdiagrams()
+        print("To visualize the diagrams use the attribute bulavision() ")
+        return sp1
 class qrk_ontime:
 # a class which takes quarks  and  associates  time  and  number  to  them
 # by time is meant  sink, source or current/s, while the number stands for
@@ -2106,6 +2116,30 @@ def diagramplot(diagram):
     time_slices = len(lst_ts)
     sky_blue = (135/255, 206/255, 235/255)
     T        = {}
+####
+    if len(hdrns_t) == 1:
+        # Determine which timeslice we have
+        timeslice_key = list(hdrns_t.keys())[0]
+        y_ver = {timeslice_key: 1} 
+        if timeslice_key == 0:
+            ax.text(1, 3 * hadron_ts + 4.5, 'src', fontsize=15, ha='center', va='center', color='gray', weight='bold')
+        elif timeslice_key == 1:
+            ax.text(1, 3 * hadron_ts + 4.5, 'snk', fontsize=15, ha='center', va='center', color='gray', weight='bold')
+        else:
+            raise TypeError("Single time slice must be either source (0) or sink (1)")  
+        for timslice in hdrns_t:
+            for hadron in hdrns_t[timslice]:
+                yco = 3 * hadron_ts + 2 * y_ver[hadron.gtm()]
+                xco = 1
+                hadronP = patches.Ellipse((xco, yco), width=1, height=3, edgecolor='black', facecolor=sky_blue, lw=2)
+                ax.text(xco + 1, yco+1, hadron.ghdrn_t(), fontsize=10, ha='center', va='center', color='black')
+                ax.text(xco + 1, yco+0.5, f"({hadron.gnmbr()})", fontsize=10, ha='center', va='center', color='black')
+                for i, quark in enumerate(hadron.ghdrn().O()):
+                    ax.text(xco, yco + 1 - i, quark.gqrk_hdrn_p(), fontsize=14, ha='center', va='center', color='black')
+                    T[(hadron.gtm(), quark.ghdrn_t(), hadron.gnmbr(), quark.gqrk_hdrn_p())] = (xco, yco + 1 - i)
+                y_ver[hadron.gtm()] -= 2
+                ax.add_patch(hadronP)
+####
     if len(hdrns_t) == 2:
         y_ver = {0 : 1, 1: 1}
         ax.text(1, 3 * hadron_ts + 4.5, 'snk', fontsize=15, ha='center', va='center', color='gray', weight='bold')

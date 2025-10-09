@@ -1,0 +1,63 @@
+Notes for the projection coefficients in these directories:
+
+(1) Dirac-Pauli representation used for the gamma matrices
+
+(2) Stored in directories named after the irrep and irrep row
+     (eg. A1g_1 means row 1 of the A1g irrep)
+
+(3) File name indicates the type of spatial configuration <SC> of the operator,
+    following by operator id number  <SC>_opnum
+
+      SS = single site
+      LSD = singly-displaced in momentum direction
+      TSD = singly-displaced transverse to momentum direction
+      DDL = doubly-displaced in an L shape
+      TDO = triply-displaced orthogonally
+
+(4) First line in each file is the number of terms for that
+      operator.
+
+(5) Each line corresponds to one term in the operator, in the format
+
+          qbar_spin  q_spin  qbar_disp  q_disp1  q_disp2  coeff_re coeff_im
+
+    where q_spin=1,2,3,4           (Dirac spin component)
+    and   q_disp=-3,-2,-1,0,1,2,3  (displacement direction)
+
+(6) These coefficient assume that the "chi" field is used instead of
+    psi-bar, where  
+
+                    chi = psi-bar gamma_4
+
+
+(7) For isoscalars, flavor is  (s-bar s)  or  (u-bar u) + (d-bar d)
+
+    For isovectors, flavor is  (d-bar u)
+
+    For kaons, flavor is  (s-bar u)
+
+    For antikaons, flavor is  (d-bar s)
+
+Definitions of the operators to handle G-parity: we need to associate
+a single reference site "x" with each operator in our basis such that
+an operator under G-parity goes into another operator associated with
+the same "x".  In the above operators, each displacement can be associated
+with the quark or the antiquark (in the opposite direction).
+One way to get an appropriate definition for a single value of "x" is to
+sum over the different ways of associating the displacements with
+either the quark or antiquark:
+
+      chi (-d1 d2 d3 psi)   + (chi d1) (d2 d3 psi) 
+   + (chi d1 -d2) (d3 psi)  + (chi d1 -d2 -d3) psi
+
+(8) These are annihilation operators.
+
+(9) Representative momentum denoted by three characters corresponding to 
+    x,y,z components.  For each component, the characters mean
+            "0" =>  0
+            "+" =>  1
+            "-" => -1
+            "#" =>  2
+            "=" => -2
+            "T" =>  3
+            "t" => -3
