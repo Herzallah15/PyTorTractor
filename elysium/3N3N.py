@@ -1,3 +1,20 @@
+# system modules
+import os
+import sys
+
+# optional: falls psutil noch gebraucht wird
+import psutil
+https://chatgpt.com/c/68e8c33b-a02c-8325-800e-db6319fca66f
+# project modules
+from contractions_handler import *
+from Hadron_Info_Converter import *
+from Hadrontractions_Converter import *
+from PyTorDefinitions import *
+from PyTorTractor_SingleHadron import *
+from PyTorTractor import *
+
+
+
 Hadron1 = Hadron(File_Info_Path = 'data/baryon_operators.h5', Hadron_Type = 'baryon_operators', Hadron_Position = (1,0), Flavor = 'nucleon_uud',
           Momentum = (0,0,0), LGIrrep = 'G1g_1', Displacement = 'SS_0', dlen='dlen0')
 Hadron2 = Hadron(File_Info_Path = 'data/baryon_operators.h5', Hadron_Type = 'baryon_operators', Hadron_Position = (1,1), Flavor = 'nucleon_uud',
