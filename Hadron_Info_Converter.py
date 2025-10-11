@@ -509,7 +509,7 @@ class TwoHadron:
                                Displacement = self.Hadron1.getDisplacement(), dlen = self.Hadron1.getDlen())
                 hdrn2 = Hadron(File_Info_Path = self.Hadron2.getFile_Info_Path(), Hadron_Type = self.Hadron2.getHadron_Type(),
                                Hadron_Position = self.Hadron2.getHadron_Position(), Flavor = H2_Flavor,
-                               Momentum = H1_Momentum, LGIrrep = H2_Group, 
+                               Momentum = H2_Momentum, LGIrrep = H2_Group, 
                                Displacement = self.Hadron2.getDisplacement(), dlen = self.Hadron2.getDlen())
                 ForFactor = self.Numerical_Coefficients[i]
                 T[f'combi_{i}'] = {'Hadrons': [hdrn1, hdrn2], 'Factor': ForFactor}

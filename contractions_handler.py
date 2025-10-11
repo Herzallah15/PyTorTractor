@@ -1161,7 +1161,7 @@ def Pion(ispin, mntm1 = None):
     else:
         mntm = mntm1
     state = {1: hdrn(1, 'Pi', mntm, 'dB', 'u', barness = fls), -1:  hdrn(-1, 'Pi', mntm, 'uB', 'd', barness = fls)
-            , 0:  hdrn(1/2**(1/2), 'Pi0', mntm, 'dB', 'd', barness = fls) + hdrn(-1/2**(1/2), 'Pi0', mntm, 'uB', 'u', barness = fls)}
+            , 0:  hdrn(1/2**(1/2), 'Pi', mntm, 'dB', 'd', barness = fls) + hdrn(-1/2**(1/2), 'Pi', mntm, 'uB', 'u', barness = fls)}
     if ispin in state:
         return state[ispin]
     else:
