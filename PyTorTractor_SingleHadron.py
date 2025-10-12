@@ -1,4 +1,5 @@
 from PyTorDefinitions import *
+from PyTor_S_Definitions import *
 import os, psutil
 
 class PyCorrTorch_SingleCor:
@@ -43,7 +44,42 @@ class PyCorrTorch_SingleCor:
                                for inner_key, prpm_container in inner_dict.items()]
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
 
+
     def TorchTractor_SingleCor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
+        if (All_Perambulators is None):
+            raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
+        if (ModeDoublets is None) and (ModeTriplets is None):
+            er = 'TorchTractor must take as argument at least a ModeDoublet or a ModeTriplet.'
+            raise ValueError(f'{er} One or both of the following arguments are missing: ModeDoublets = ..., ModeTriplets = ... ')
+        print(f'{len(self.clusters_with_kies)} tensor contractions to be performed')
+        cntrctns_cntr = 0
+        clusters_with_kies_copy = []
+        for full_cluster in self.clusters_with_kies:
+            all_cluter_info   = full_cluster[1][1]
+            all_Modes_Paths   = full_cluster[1][0]['MDT_Info']
+            mode_indices      = ','.join(full_cluster[1][0]['Mode_Index_Info'])
+            Mode_P_Info       = Perambulator_Mode_Handler(Full_Cluster = all_cluter_info, All_Mode_Info = all_Modes_Paths,
+                                      snktime = self.SinkTime, srctime=self.SourceTime,
+                                      Prmbltr = All_Perambulators, ModeD = ModeDoublets, ModeT = ModeTriplets)
+            Unique_Mode = Mode_P_Info['Unique_Paths']
+            stckd_P_idx = Mode_P_Info['Ps_Stacked_Indices']
+            Mode_P_Info = Mode_P_Info['Mode_P']
+            N = len(stckd_P_idx)
+            i = 0
+            try:
+                res = torch.einsum(f'{mode_indices},{stckd_P_idx[i]}->{stckd_P_idx[i][0]}',
+                                   *Mode_P_Info[Unique_Mode[i]]['ExplicitModes'],*Mode_P_Info[Unique_Mode[i]]['ExplicitPerambulators']).sum()
+                for i in range(1, N):
+                    res += torch.einsum(f'{mode_indices},{stckd_P_idx[i]}->{stckd_P_idx[i][0]}',
+                                       *Mode_P_Info[Unique_Mode[i]]['ExplicitModes'],*Mode_P_Info[Unique_Mode[i]]['ExplicitPerambulators']).sum()
+            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
+                raise TypeError('That should not happen!!!!!!')
+            clusters_with_kies_copy.append((full_cluster[0], res))
+            print(cntrctns_cntr)
+            cntrctns_cntr+=1
+        return clusters_with_kies_copy, self.WT_numerical_factors
+
+    def TorchTractor_Single_Naive(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
         if (ModeDoublets is None) and (ModeTriplets is None):
@@ -76,13 +112,8 @@ class PyCorrTorch_SingleCor:
             print(cntrctns_cntr)
             cntrctns_cntr+=1
         return clusters_with_kies_copy, self.WT_numerical_factors
-
+'''
     def TorchTractor_Old(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
-        '''
-        process = psutil.Process(os.getpid())
-        mem = process.memory_info().rss / 1024**2 
-        print(f"Speicherverbrauch: {mem:.1f} MB")
-        '''
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
         if (ModeDoublets is None) and (ModeTriplets is None):
@@ -91,11 +122,6 @@ class PyCorrTorch_SingleCor:
         print(f'{len(self.clusters_with_kies)} tensor contractions to be performed')
         cntrctns_cntr = 0
         def Perambulator_Laph(exp_prmp_container):
-            '''
-            process = psutil.Process(os.getpid())
-            mem = process.memory_info().rss / 1024**2 
-            print(f"Speicherverbrauch Anfang von Perambulator_Laph: {mem:.1f} MB")
-            '''
             Prmp_Indices_In  = ''
             Prmp_Indices_Out = ''
             Prmp_Tensors = []
@@ -117,11 +143,6 @@ class PyCorrTorch_SingleCor:
                 else:
                     raise ValueError('Error in extracting perambulators from the Perambulator_Tensor_Dict')
                 Prmp_Tensors.append(All_Perambulators[prmp_flavor][time])
-                '''
-                process = psutil.Process(os.getpid())
-                mem = process.memory_info().rss / 1024**2
-                print(f"Speicherverbrauch_End von Perabmulaotr_Laph: {mem:.1f} MB")
-                '''
             return {'index_In': Prmp_Indices_In[:-1], 'index_Out': Prmp_Indices_Out, 'Tensor': Prmp_Tensors}
         clusters_with_kies_copy = []
         for full_cluster in self.clusters_with_kies:
@@ -130,11 +151,6 @@ class PyCorrTorch_SingleCor:
             if isinstance(Doublet_Triplet_Tensor_Info, tuple):
                 print('One ModeDoublet/Triplet for all spin combination')
                 M_Tensors = []
-                '''
-                process = psutil.Process(os.getpid())
-                mem = process.memory_info().rss / 1024**2 
-                print(f"Speicherverbrauch Vor M_Tensors: {mem:.1f} MB")
-                '''
                 for path in Doublet_Triplet_Tensor_Info:
                     if path[0] == '0':
                         final_path = path[3:]+'_t'+str(self.SourceTime)
@@ -156,19 +172,9 @@ class PyCorrTorch_SingleCor:
                         raise ValueError('Failed to identify sink and source times')
             else:
                 raise ValueError('Update the Method!')
-            '''
-            process = psutil.Process(os.getpid())
-            mem = process.memory_info().rss / 1024**2 
-            print(f"Speicherverbrauch Nach M_Tensors und vor extractor: {mem:.1f} MB")
-            '''
             extractor     = Perambulator_Laph(full_cluster[1][1][0])
             prmp_indx_In  = extractor['index_In']
             prmp_indx_Ou  = extractor['index_Out']
-            '''
-            process = psutil.Process(os.getpid())
-            mem = process.memory_info().rss / 1024**2 
-            print(f"Speicherverbrauch nach extractor: {mem:.1f} MB")
-            '''
             #print(f' Index Infos: {DT_Index},{prmp_indx_In}->{prmp_indx_Ou}')
             #print(f'Tensor Infos {[i.shape for i in [*M_Tensors]]} and {[i.shape for i in [*extractor["Tensor"]]]}')
             try:
@@ -182,3 +188,4 @@ class PyCorrTorch_SingleCor:
             print(cntrctns_cntr)
             cntrctns_cntr+=1
         return clusters_with_kies_copy, self.WT_numerical_factors
+'''

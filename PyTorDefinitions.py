@@ -97,6 +97,7 @@ index_map = {
 
     (1,3,0): 'j',
     (1,3,1): 'k',
+    (1,3,2): 'l',
 
     (0,0,0): 'm',
     (0,0,1): 'n',
@@ -111,10 +112,38 @@ index_map = {
     (0,2,2): 'u',
 
     (0,3,0): 'v',
-    (0,3,1): 'w'
+    (0,3,1): 'w',
+    (0,3,2): 'x'
 }
+stack_index_map = {0: 'y',
+                   1: 'z',
+                   2: 'A',
+                   3: 'B',
+                   4: 'C',
+                   5: 'D',
+                   6: 'E',
+                   7: 'F',
+                   8: 'G',
+                   9: 'H',
+                   10: 'I',
+                   11: 'J',
+                   12: 'K',
+                   13: 'L',
+                   14: 'N',
+                   15: 'O',
+                   16: 'B',
+                   17: 'Q',
+                   18: 'R',
+                   19: 'S',
+                   20: 'T',
+                   21: 'U',
+                   22: 'V',
+                   23: 'W',
+                   24: 'X',
+                   25: 'Y',
+                   26: 'Z'}
 
-
+'''
 spin_index_map = {
     (1,0,0): 'A',
     (1,0,1): 'B',
@@ -156,7 +185,7 @@ MDT_index_map = {
     (0,2): 'Z',
     (0,3): 'L'
 }
-
+'''
 
 
 def hdrn_type(x):
@@ -269,7 +298,7 @@ def combine_all(all_info):
     return res
 
 
-def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading = False, cplx128 = True):
+def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading = False, cplx128 = True, verbose = False):
     if cplx128:
         data_type = torch.complex128
     else:
@@ -323,12 +352,13 @@ def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading =
                     g4                            = gamma(4, data_type).to(Device)
                     gM                            = torch.matmul(g5, g4)
                     P_SuperTenspr_Dict[ex_srcsnk] = torch.einsum('ij,jnlm,nk->kiml', gM, P_SuperTenspr_Dict[srcTime_snkTime_group], gM).conj()
-                    print(f' Perambulator for {ex_srcsnk} has been constructed using infos about {srcTime_snkTime_group}!')
+                    if verbose:
+                        print(f' Perambulator for {ex_srcsnk} has been constructed using infos about {srcTime_snkTime_group}!')
     print(r'Perambulator_Tensor has been successfully constructed')
     return P_SuperTenspr_Dict
 
 
-def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Doublet_Identity = None):
+def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Doublet_Identity = None, verbose=False):
     if cplx128:
         data_type = torch.complex128
     else:
@@ -380,11 +410,12 @@ def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selec
             if (use_on != '0') and (int(use_on) > 0):
                 displacement_mq = group.split('ddir')[0]+'ddir-'+use_on+'_'+group.split('_')[-1]
                 MD_SuperTensor_Dict[displacement_mq] = MD_SuperTensor_Dict[group].conj().T
-                print(f'The group {displacement_mq} has been constructed from {group}')
+                if verbose:
+                    print(f'The group {displacement_mq} has been constructed from {group}')
     print(r'MD_Tensor has been successfully constructed')
     return MD_SuperTensor_Dict
 
-def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Triplet_Identity = None):
+def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Triplet_Identity = None, verbose = False):
     if cplx128:
         data_type = torch.complex128
     else:
@@ -443,7 +474,8 @@ def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selec
                 displacement_q3 = group.split('ddir')[0]+'ddir00_'+group.split('_')[3].split('ddir')[1]+'_' + dln + '_'+ group.split('_')[-1]
                 MT_SuperTensor_Dict[displacement_q2] = -1 * MT_SuperTensor_Dict[group].permute(1,0,2)
                 MT_SuperTensor_Dict[displacement_q3] = torch.einsum('kij->ijk', MT_SuperTensor_Dict[group])
-                print(f'The groups {displacement_q2} and {displacement_q3} have been constructed from {group}')  
+                if verbose:
+                    print(f'The groups {displacement_q2} and {displacement_q3} have been constructed from {group}')  
     print(r'MT_Tensor has been successfully constructed')
     return MT_SuperTensor_Dict
 
