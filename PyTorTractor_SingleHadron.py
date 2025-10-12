@@ -44,7 +44,6 @@ class PyCorrTorch_SingleCor:
                                for inner_key, prpm_container in inner_dict.items()]
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
 
-
     def TorchTractor_SingleCor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
@@ -58,7 +57,34 @@ class PyCorrTorch_SingleCor:
             all_cluter_info   = full_cluster[1][1]
             all_Modes_Paths   = full_cluster[1][0]['MDT_Info']
             mode_indices      = ','.join(full_cluster[1][0]['Mode_Index_Info'])
-            Mode_P_Info       = Perambulator_Mode_Handler(Full_Cluster = all_cluter_info, All_Mode_Info = all_Modes_Paths,
+            Ps_indices, Mode_Indices, Stacked_Ps, Stacked_Ms  = Perambulator_Mode_Handler(Full_Cluster = all_cluter_info,
+                                                                                             All_Mode_Info = all_Modes_Paths,
+                                                                                             snktime = self.SinkTime, srctime=self.SourceTime,
+                                                                                             Mode_Unsplitted_Index = mode_indices,
+                                                                                             Prmbltr = All_Perambulators, ModeD = ModeDoublets,
+                                                                                             ModeT = ModeTriplets)
+            try:
+                res = torch.einsum(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps).sum()
+            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
+                raise TypeError('That should not happen!!!!!!')
+            clusters_with_kies_copy.append((full_cluster[0], res))
+            print(cntrctns_cntr)
+            cntrctns_cntr+=1
+        return clusters_with_kies_copy, self.WT_numerical_factors
+    def TorchTractor_SingleCor_OnlyPStack(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
+        if (All_Perambulators is None):
+            raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
+        if (ModeDoublets is None) and (ModeTriplets is None):
+            er = 'TorchTractor must take as argument at least a ModeDoublet or a ModeTriplet.'
+            raise ValueError(f'{er} One or both of the following arguments are missing: ModeDoublets = ..., ModeTriplets = ... ')
+        print(f'{len(self.clusters_with_kies)} tensor contractions to be performed')
+        cntrctns_cntr = 0
+        clusters_with_kies_copy = []
+        for full_cluster in self.clusters_with_kies:
+            all_cluter_info   = full_cluster[1][1]
+            all_Modes_Paths   = full_cluster[1][0]['MDT_Info']
+            mode_indices      = ','.join(full_cluster[1][0]['Mode_Index_Info'])
+            Mode_P_Info       = Perambulator_Mode_Handler_PStacked(Full_Cluster = all_cluter_info, All_Mode_Info = all_Modes_Paths,
                                       snktime = self.SinkTime, srctime=self.SourceTime,
                                       Prmbltr = All_Perambulators, ModeD = ModeDoublets, ModeT = ModeTriplets)
             Unique_Mode = Mode_P_Info['Unique_Paths']

@@ -109,7 +109,7 @@ def Perambulator_Extractor(all_perambulators = None, exp_prmp_container = None, 
         Prmp_Tensors.append(all_perambulators[prmp_flavor][time][s, s_Bar, :, :] * num_factor)
     return Prmp_Indices_In[:-1], Prmp_Tensors
 
-def Perambulator_Mode_Handler(Full_Cluster = None, All_Mode_Info = None,
+def Perambulator_Mode_Handler_PStacked(Full_Cluster = None, All_Mode_Info = None,
                              snktime = None, srctime=None,
                              Prmbltr = None, ModeD = None, ModeT = None):
     # Find all Modes, which are equivalent
@@ -200,3 +200,70 @@ if True:
             cntrctns_cntr+=1
         return clusters_with_kies_copy, self.WT_numerical_factors
 '''
+def Perambulator_Mode_Handler(Full_Cluster = None, All_Mode_Info = None,
+                             snktime = None, srctime=None, Mode_Unsplitted_Index = None,
+                             Prmbltr = None, ModeD = None, ModeT = None):
+    # Find all Modes, which are equivalent
+    unique_mode_paths = {}
+    for i, path in enumerate(All_Mode_Info):
+        if tuple(path) in unique_mode_paths:
+            unique_mode_paths[tuple(path)]['ExplicitPerambulators'].append(i)
+        else:
+            unique_mode_paths[tuple(path)] = {'ExplicitModes': [], 'ExplicitPerambulators': []}
+            unique_mode_paths[tuple(path)]['ExplicitPerambulators'] = [i]
+    unique_mode_paths_copy = [path for path in unique_mode_paths]
+    # Now put in the explicit expressions of the modes!
+    Stacked_Modes = []
+    for unique_path in unique_mode_paths_copy:
+        # path here corresponds to one_mode_path
+        Mode_Container = []
+        for path in unique_path:
+            if path[0] == '0':
+                final_path = path[3:]+'_t'+str(srctime)
+                if path[1] == 'D':
+                    Mode_Container.append(ModeD[final_path].conj())
+                elif path[1] == 'T':
+                    Mode_Container.append(ModeT[final_path].conj())
+                else:
+                    raise ValueError('Failed to identiy type of the Mode')
+            elif path[0] == '1':
+                final_path = path[3:]+'_t'+str(snktime)
+                if path[1] == 'D':
+                    Mode_Container.append(ModeD[final_path])
+                elif path[1] == 'T':
+                    Mode_Container.append(ModeT[final_path])
+                else:
+                    raise ValueError('Failed to identiy type of the Mode')
+            else:
+                raise ValueError('Failed to identify sink and source times')
+        Stacked_Modes.append(Mode_Container)
+    Stacked_Modes = stacker(Stacked_Modes)
+    # Now Construc tht explicit and Perambulators
+    Ps_indices         = ''
+    cntr = 0
+    Stacked_Ps = []
+    for unique_path in unique_mode_paths_copy:
+        Mode_Container = []
+        all_clusters_numbers = unique_mode_paths[unique_path]['ExplicitPerambulators'].copy()
+        for cluster_number in all_clusters_numbers:
+            Ps_indices_0, Ps_List = Perambulator_Extractor(all_perambulators = Prmbltr,
+                                                         exp_prmp_container = Full_Cluster[cluster_number],
+                                                         snktime = snktime, srctime = srctime)
+            if cntr == 0:
+                Ps_indices = Ps_indices_0
+                cntr += 1
+            else:
+                if Ps_indices != Ps_indices_0:
+                    raise ValueError('Failed to extract perambulator indices')
+            Mode_Container.append(Ps_List)
+        Stacked_Ps.append(stacker(Mode_Container))
+    Stacked_Ps  = stacker(Stacked_Ps)
+    stckng_idx1 = stack_index_map[0]
+    stckng_idx2 = stack_index_map[1]
+    #Mode_Unsplitted_Index
+    Mode_Indices = ','.join([f'{stckng_idx1}'+i for i in Mode_Unsplitted_Index.split(',')])
+    Ps_indices = ','.join([f'{stckng_idx1}{stckng_idx2}'+i for i in Ps_indices.split(',')])
+    print(f'Mode_Indices: {Mode_Indices}')
+    print(f'Ps_indices: {Ps_indices}')
+    return Ps_indices, Mode_Indices, Stacked_Ps, Stacked_Modes
+    #return {'P_Idx': Ps_indices, 'M_Idx': Mode_Indices, 'P_T': Stacked_Ps, 'M_T': Stacked_Modes}
