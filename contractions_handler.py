@@ -1103,7 +1103,7 @@ def Xi(ispin, mntm1 = None):
         mntm = 1
     else:
         mntm = mntm1
-    state = {1: hdrn(1, 'xi', mntm, 's', 's', 'u', barness = fls), -1:  hdrn(-1, 'xi', mntm, 's', 's', 'd', barness = fls)}
+    state = {1/2: hdrn(1, 'xi', mntm, 's', 's', 'u', barness = fls), -1/2:  hdrn(-1, 'xi', mntm, 's', 's', 'd', barness = fls)}
     if ispin in state:
         return state[ispin]
     else:
@@ -1384,6 +1384,13 @@ class dgrm:
         diagramplot(self)
         return list_of_propagators
         print("************************************************")
+    def getContraction(self):
+        list_of_propagators = []
+        for propagator in self.gpropagators():
+            q1 = propagator.gbar()
+            q2 = propagator.gnbar()
+            list_of_propagators.append([[q2.gtm(), q2.ghdrn_n(), q2.gqrk_hdrn_p()], [q1.gtm(), q1.ghdrn_n(), q1.gqrk_hdrn_p()]])
+        return list_of_propagators
     def __add__(self, other):
         if isinstance(other, int) and other == 0:
             return self
