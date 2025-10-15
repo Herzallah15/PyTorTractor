@@ -1751,7 +1751,7 @@ class OpTimeSlice:
             nwhdrns = []
             counter = 0
             if self.tm == 0:
-                statstic_hadrons = statstic_hadrons0#reversed(statstic_hadrons0)
+                statstic_hadrons = reversed(statstic_hadrons0)
             else:
                 statstic_hadrons = statstic_hadrons0
             for hadron in statstic_hadrons:
@@ -1766,7 +1766,7 @@ class OpTimeSlice:
                 nwhdrns = []
                 counter = 0
                 if self.tm == 0:
-                    statstic_hadrons = statstic_hadrons0#reversed(statstic_hadrons0)
+                    statstic_hadrons = reversed(statstic_hadrons0)
                 else:
                     statstic_hadrons = statstic_hadrons0
                 for hadron in statstic_hadrons:
