@@ -507,23 +507,31 @@ class TwoHadron:
                 if (not h1_group_Info[0]) and (not h2_group_Info[0]):
                     H1_Momentum = tuple(self.Hadron_TotalCombi[i][0:3].tolist())
                     H1_Group = self.Hadron1.getGroup() + '_' + str(self.Hadron_TotalCombi[i][4])
+                    H1_Dis = self.Hadron1.getDisplacement()
+                    H1_dlen = self.Hadron1.getDlen()
                     H2_Momentum = tuple(self.Hadron_TotalCombi[i][5:8].tolist())
                     H2_Group = self.Hadron2.getGroup() + '_' + str(self.Hadron_TotalCombi[i][9])
+                    H2_Dis = self.Hadron2.getDisplacement()
+                    H2_dlen = self.Hadron2.getDlen()
                 elif h1_group_Info[0] and h2_group_Info[0]:
                     H2_Momentum = tuple(self.Hadron_TotalCombi[i][0:3].tolist())
                     H2_Group = self.Hadron1.getGroup() + '_' + str(self.Hadron_TotalCombi[i][4])
+                    H2_Dis = self.Hadron1.getDisplacement()
+                    H2_dlen = self.Hadron1.getDlen()
                     H1_Momentum = tuple(self.Hadron_TotalCombi[i][5:8].tolist())
                     H1_Group = self.Hadron2.getGroup() + '_' + str(self.Hadron_TotalCombi[i][9])
+                    H1_Dis = self.Hadron2.getDisplacement()
+                    H1_dlen = self.Hadron2.getDlen()
                 else:
                     raise ValueError('2Hhadron_Reader failed to extract hadorn combinations')
                 hdrn1 = Hadron(File_Info_Path = self.Hadron1.getFile_Info_Path(), Hadron_Type = self.Hadron1.getHadron_Type(),
                                Hadron_Position = self.Hadron1.getHadron_Position(), Flavor = H1_Flavor,
                                Momentum = H1_Momentum, LGIrrep = H1_Group, 
-                               Displacement = self.Hadron1.getDisplacement(), dlen = self.Hadron1.getDlen())
+                               Displacement = H1_Dis, dlen = H1_dlen)
                 hdrn2 = Hadron(File_Info_Path = self.Hadron2.getFile_Info_Path(), Hadron_Type = self.Hadron2.getHadron_Type(),
                                Hadron_Position = self.Hadron2.getHadron_Position(), Flavor = H2_Flavor,
                                Momentum = H2_Momentum, LGIrrep = H2_Group, 
-                               Displacement = self.Hadron2.getDisplacement(), dlen = self.Hadron2.getDlen())
+                               Displacement = H2_Dis, dlen = H2_dlen)
                 ForFactor = self.Numerical_Coefficients[i] * extra_factor
                 T[f'combi_{i}'] = {'Hadrons': [hdrn1, hdrn2], 'Factor': ForFactor}
             self.alIn = T
