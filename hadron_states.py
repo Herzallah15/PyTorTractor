@@ -114,7 +114,7 @@ def sigma(ispin, mntm1 = None):
         mntm = mntm1
     return hdrn(1/(2**(1/2)), 'sigma', mntm, 'dB', 'd', barness = fls) + hdrn(1/(2**(1/2)), 'sigma', mntm, 'uB', 'u', barness = fls)
 
-def Phi(ispin, mntm1 = None):
+def Phi(mntm1 = None):
     if mntm1 == None:
         mntm = 1
     else:
@@ -132,7 +132,12 @@ def DMeson(ispin, mntm1 = None):
     else:
         raise TypeError(f"Error: First argument of DMeson must be the its type, i.e. +, - or 0 ")
 
-
+def Eta(mntm1 = None):
+    if mntm1 == None:
+        mntm = 1
+    else:
+        mntm = mntm1
+    return hdrn(1/(2**(1/2)), 'Eta', mntm, 'uB', 'u', barness = fls) + hdrn(1/(2**(1/2)), 'Eta', mntm, 'dB', 'd', barness = fls)
 
 
 

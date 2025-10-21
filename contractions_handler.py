@@ -1,5 +1,4 @@
 from itertools import combinations
-from hadron_states import *
 # a class to generate quarks that remember from  which  hadron  they   are
 # ff =           the numerical factor, with which the hadron is multiplied
 # hdrn_t        =   the  hadron   type,   in   which   the   quark   lives
@@ -2296,3 +2295,4 @@ def diagramplot(diagram):
     ax.set_ylim(0, 3 * hadron_ts + 4)
     ax.axis('off')
     plt.show()
+from hadron_states import *
