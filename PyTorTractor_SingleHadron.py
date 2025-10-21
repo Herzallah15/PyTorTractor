@@ -68,7 +68,7 @@ class PyCorrTorch_SingleCor:
             except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
                 raise TypeError('That should not happen!!!!!!')
             clusters_with_kies_copy.append((full_cluster[0], res))
-            print(cntrctns_cntr)
+            #print(cntrctns_cntr)
             cntrctns_cntr+=1
         return clusters_with_kies_copy, self.WT_numerical_factors
     def TorchTractor_SingleCor_OnlyPStack(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):

@@ -263,7 +263,7 @@ def Perambulator_Mode_Handler(Full_Cluster = None, All_Mode_Info = None,
     #Mode_Unsplitted_Index
     Mode_Indices = ','.join([f'{stckng_idx1}'+i for i in Mode_Unsplitted_Index.split(',')])
     Ps_indices = ','.join([f'{stckng_idx1}{stckng_idx2}'+i for i in Ps_indices.split(',')])
-    print(f'Mode_Indices: {Mode_Indices}')
-    print(f'Ps_indices: {Ps_indices}')
+    #print(f'Mode_Indices: {Mode_Indices}')
+    #print(f'Ps_indices: {Ps_indices}')
     return Ps_indices, Mode_Indices, Stacked_Ps, Stacked_Modes
     #return {'P_Idx': Ps_indices, 'M_Idx': Mode_Indices, 'P_T': Stacked_Ps, 'M_T': Stacked_Modes}

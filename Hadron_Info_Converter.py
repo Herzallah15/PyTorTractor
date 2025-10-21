@@ -465,16 +465,17 @@ class TwoHadron:
                 raise ValueError('For MesonMeson operators you must specifiy the strangeness!')
             def flavor_specify(strngnss, hdrn_flvr):
                 if strngnss == 1:
-                    state = 'kaon_su'
-                    ff = 1 if hdrn_flvr == state else -1
+                    ff     = 1 if hdrn_flvr == 'kaon_su' else -1
+                    Siwtch = False if hdrn_flvr == 'kaon_su' else True
                 elif strngnss == -1:
-                    state = 'antikaon_ds'
-                    ff = 1 if hdrn_flvr == state else -1
+                    ff = 1 if hdrn_flvr == 'antikaon_ds' else -1
+                    Siwtch = False if hdrn_flvr == 'antikaon_ds' else True
                 elif strngnss == 0:
                     ff = 1
+                    Siwtch = False
                 else:
                     raise ValueError('Strangeness can be either 1, -1 or 0')
-                return hdrn_flvr, ff
+                return Siwtch, ff
             Hierarchy_0  =  self.Hadron1.getHadron_Type().split('_')[0] + '_' + self.Hadron2.getHadron_Type().split('_')[0]+'_operators'
             Hierarchy_1  =  momentum(self.Total_Momentum)['mom_path']
             Hierarchy_2  =  self.LGIrrep
@@ -498,14 +499,23 @@ class TwoHadron:
                 self.Hadron_TotalCombi      = yunus['ivals'][2:][:].reshape(self.N, M)
             T = {}
             for i in range(self.N):
-                H1_Momentum = tuple(self.Hadron_TotalCombi[i][0:3].tolist())
-                H1_Flavor   = flavor_specify(self.Hadron_TotalCombi[i][3], self.Hadron1.getFlavor())[0]
-                H1_Group = self.Hadron1.getGroup() + '_' + str(self.Hadron_TotalCombi[i][4])
-                
-                H2_Momentum = tuple(self.Hadron_TotalCombi[i][5:8].tolist())
-                H2_Flavor   = flavor_specify(self.Hadron_TotalCombi[i][8], self.Hadron2.getFlavor())[0]
-                H2_Group = self.Hadron2.getGroup() + '_' + str(self.Hadron_TotalCombi[i][9])
-                
+                H1_Flavor   = self.Hadron1.getFlavor()
+                H2_Flavor   = self.Hadron2.getFlavor()
+                h1_group_Info = flavor_specify(self.Hadron_TotalCombi[i][3], H1_Flavor)
+                h2_group_Info = flavor_specify(self.Hadron_TotalCombi[i][8], H2_Flavor)
+                extra_factor  = flavor_specify(self.Hadron_TotalCombi[i][3], H1_Flavor)[1]
+                if (not h1_group_Info[0]) and (not h2_group_Info[0]):
+                    H1_Momentum = tuple(self.Hadron_TotalCombi[i][0:3].tolist())
+                    H1_Group = self.Hadron1.getGroup() + '_' + str(self.Hadron_TotalCombi[i][4])
+                    H2_Momentum = tuple(self.Hadron_TotalCombi[i][5:8].tolist())
+                    H2_Group = self.Hadron2.getGroup() + '_' + str(self.Hadron_TotalCombi[i][9])
+                elif h1_group_Info[0] and h2_group_Info[0]:
+                    H2_Momentum = tuple(self.Hadron_TotalCombi[i][0:3].tolist())
+                    H2_Group = self.Hadron1.getGroup() + '_' + str(self.Hadron_TotalCombi[i][4])
+                    H1_Momentum = tuple(self.Hadron_TotalCombi[i][5:8].tolist())
+                    H1_Group = self.Hadron2.getGroup() + '_' + str(self.Hadron_TotalCombi[i][9])
+                else:
+                    raise ValueError('2Hhadron_Reader failed to extract hadorn combinations')
                 hdrn1 = Hadron(File_Info_Path = self.Hadron1.getFile_Info_Path(), Hadron_Type = self.Hadron1.getHadron_Type(),
                                Hadron_Position = self.Hadron1.getHadron_Position(), Flavor = H1_Flavor,
                                Momentum = H1_Momentum, LGIrrep = H1_Group, 
@@ -514,7 +524,7 @@ class TwoHadron:
                                Hadron_Position = self.Hadron2.getHadron_Position(), Flavor = H2_Flavor,
                                Momentum = H2_Momentum, LGIrrep = H2_Group, 
                                Displacement = self.Hadron2.getDisplacement(), dlen = self.Hadron2.getDlen())
-                ForFactor = self.Numerical_Coefficients[i] * flavor_specify(self.Hadron_TotalCombi[i][3], self.Hadron1.getFlavor())[1]
+                ForFactor = self.Numerical_Coefficients[i] * extra_factor
                 T[f'combi_{i}'] = {'Hadrons': [hdrn1, hdrn2], 'Factor': ForFactor}
             self.alIn = T
         else:
