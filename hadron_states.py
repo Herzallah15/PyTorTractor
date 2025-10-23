@@ -142,121 +142,217 @@ def Eta(mntm1 = None):
 
 
 
-def TwoHadronAnnihilation(rep=None, I=None, I3=None, A=None, B=None):
-    """
-    Compute two-hadron annihilation operators for given isospin representations.
-    
-    Parameters:
-    -----------
-    rep : list
-        Representation as [I_A, I_B] where I_A and I_B are isospin values
-    I : int
-        Total isospin quantum number
-    I3 : int
-        Isospin projection quantum number
-    A : function
-        Annihilation operator A (left operator)
-    B : function
-        Annihilation operator B (right operator)
-        
-    Returns:
-    --------
-    Combined operator expression
-    
-    Note: A is always on the left, B is always on the right (annihilation operators)
-    """
-    if list(rep) == [1/2, 1/2]:        
+def normalize_function(coefficients):
+    return 1 / np.sqrt(sum(c**2 for c in coefficients))
+
+def TwoHadronAnnihilation(rep=None, I=None, I3=None):
+    if list(rep) == [1/2, 1/2]:
+        # Equation 7.13: 1/2 ⊗ 1/2
         if I == 0 and I3 == 0:
-            return (B(-1/2) * A(1/2) - B(1/2) * A(-1/2))/np.sqrt(2)
+            state = [(1/2, -1/2), (-1/2, 1/2)]
+            super_position_factors = [1, -1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1 and I3 == 1:
-            return B(1/2) * A(1/2)
+            state = [(1/2, 1/2)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1 and I3 == 0:
-            return (B(-1/2) * A(1/2) + B(1/2) * A(-1/2))/np.sqrt(2)
+            state = [(1/2, -1/2), (-1/2, 1/2)]
+            super_position_factors = [1, 1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1 and I3 == -1:
-            return B(-1/2) * A(-1/2)
+            state = [(-1/2, -1/2)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
             
     elif list(rep) == [1/2, 1]:
         # Equation 7.14: 1/2 ⊗ 1
         if I == 1/2 and I3 == 1/2:
-            return (B(0) * A(1/2) - np.sqrt(2) * B(1) * A(-1/2))/(np.sqrt(3))
+            state = [(1/2, 0), (-1/2, 1)]
+            super_position_factors = [1, -np.sqrt(2)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1/2 and I3 == -1/2:
-            return (B(0) * A(-1/2) - np.sqrt(2) * B(-1) * A(1/2))/(np.sqrt(3))
+            state = [(-1/2, 0), (1/2, -1)]
+            super_position_factors = [1, -np.sqrt(2)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 3/2 and I3 == 3/2:
-            return B(1) * A(1/2)
+            state = [(1/2, 1)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 3/2 and I3 == 1/2:
-            return (B(1) * A(-1/2) + np.sqrt(2) * B(0) * A(1/2))/(np.sqrt(3))
+            state = [(-1/2, 1), (1/2, 0)]
+            super_position_factors = [1, np.sqrt(2)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 3/2 and I3 == -1/2:
-            return (B(-1) * A(1/2) + np.sqrt(2) * B(0) * A(-1/2))/(np.sqrt(3))
+            state = [(1/2, -1), (-1/2, 0)]
+            super_position_factors = [1, np.sqrt(2)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 3/2 and I3 == -3/2:
-            return B(-1) * A(-1/2)
+            state = [(-1/2, -1)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
             
     elif list(rep) == [1, 1]:
         # Equation 7.15: 1 ⊗ 1
         if I == 0 and I3 == 0:
-            return (B(-1) * A(1) - B(0) * A(0) + B(1) * A(-1))/(np.sqrt(3))
+            state = [(1, -1), (0, 0), (-1, 1)]
+            super_position_factors = [1, -1, 1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1 and I3 == 1:
-            return (B(0) * A(1) - B(1) * A(0))/(np.sqrt(2))
+            state = [(1, 0), (0, 1)]
+            super_position_factors = [1, -1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1 and I3 == 0:
-            return (B(-1) * A(1) - B(1) * A(-1))/(np.sqrt(2))
+            state = [(1, -1), (-1, 1)]
+            super_position_factors = [1, -1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1 and I3 == -1:
-            return (B(-1) * A(0) - B(0) * A(-1))/(np.sqrt(2))
+            state = [(0, -1), (-1, 0)]
+            super_position_factors = [1, -1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == 2:
-            return B(1) * A(1)
+            state = [(1, 1)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == 1:
-            return (B(0) * A(1) + B(1) * A(0))/(np.sqrt(2))
+            state = [(1, 0), (0, 1)]
+            super_position_factors = [1, 1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == 0:
-            return (B(-1) * A(1) + 2 * B(0) * A(0) + B(1) * A(-1))/(np.sqrt(6))
+            state = [(1, -1), (0, 0), (-1, 1)]
+            super_position_factors = [1, 2, 1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == -1:
-            return (B(-1) * A(0) + B(0) * A(-1))/(np.sqrt(2))
+            state = [(0, -1), (-1, 0)]
+            super_position_factors = [1, 1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == -2:
-            return B(-1) * A(-1)
+            state = [(-1, -1)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
             
     elif list(rep) == [1/2, 3/2]:
         # Equation 7.16: 1/2 ⊗ 3/2
         if I == 1 and I3 == 1:
-            return (B(1/2) * A(1/2) - np.sqrt(3) * B(3/2) * A(-1/2))/2
+            state = [(1/2, 1/2), (-1/2, 3/2)]
+            super_position_factors = [1, -np.sqrt(3)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1 and I3 == 0:
-            return (B(-1/2) * A(1/2) - B(1/2) * A(-1/2))/np.sqrt(2)
+            state = [(1/2, -1/2), (-1/2, 1/2)]
+            super_position_factors = [1, -1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1 and I3 == -1:
-            return (np.sqrt(3) * B(-3/2) * A(1/2) - B(-1/2) * A(-1/2))/2
+            state = [(1/2, -3/2), (-1/2, -1/2)]
+            super_position_factors = [np.sqrt(3), -1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == 2:
-            return B(3/2) * A(1/2)
+            state = [(1/2, 3/2)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == 1:
-            return (B(-3/2) * A(1/2) + np.sqrt(3) * B(-1/2) * A(-1/2))/2
+            state = [(1/2, -3/2), (-1/2, -1/2)]
+            super_position_factors = [1, np.sqrt(3)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == 0:
-            return (B(-1/2) * A(1/2) + B(1/2) * A(-1/2))/np.sqrt(2)
+            state = [(1/2, -1/2), (-1/2, 1/2)]
+            super_position_factors = [1, 1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == -1:
-            return (np.sqrt(3) * B(1/2) * A(1/2) + B(3/2) * A(-1/2))/2
+            state = [(1/2, 1/2), (-1/2, 3/2)]
+            super_position_factors = [np.sqrt(3), 1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 2 and I3 == -2:
-            return B(-3/2) * A(-1/2)
+            state = [(-1/2, -3/2)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
             
     elif list(rep) == [1, 3/2]:
         # Equation 7.17: 1 ⊗ 3/2
         if I == 1/2 and I3 == 1/2:
-            return (B(-1/2) * A(1) - np.sqrt(2) * B(1/2) * A(0) + np.sqrt(3) * B(3/2) * A(-1))/(np.sqrt(6))
+            state = [(1, -1/2), (0, 1/2), (-1, 3/2)]
+            super_position_factors = [1, -np.sqrt(2), np.sqrt(3)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 1/2 and I3 == -1/2:
-            return (np.sqrt(3) * B(-3/2) * A(1) - np.sqrt(2) * B(-1/2) * A(0) + B(1/2) * A(-1))/(np.sqrt(6))
+            state = [(1, -3/2), (0, -1/2), (-1, 1/2)]
+            super_position_factors = [np.sqrt(3), -np.sqrt(2), 1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 3/2 and I3 == 3/2:
-            return (np.sqrt(2) * B(1/2) * A(1) - np.sqrt(3) * B(3/2) * A(0))/(np.sqrt(5))
+            state = [(1, 1/2), (0, 3/2)]
+            super_position_factors = [np.sqrt(2), -np.sqrt(3)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 3/2 and I3 == 1/2:
-            return (4 * B(-1/2) * A(1) - np.sqrt(2) * B(1/2) * A(0) - 2 * np.sqrt(3) * B(3/2) * A(-1))/(np.sqrt(30))
+            state = [(1, -1/2), (0, 1/2), (-1, 3/2)]
+            super_position_factors = [4, -np.sqrt(2), -2*np.sqrt(3)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 3/2 and I3 == -1/2:
-            return (2 * np.sqrt(3) * B(-3/2) * A(1) + np.sqrt(2) * B(-1/2) * A(0) - 4 * B(1/2) * A(-1))/(np.sqrt(30))
+            state = [(1, -3/2), (0, -1/2), (-1, 1/2)]
+            super_position_factors = [2*np.sqrt(3), np.sqrt(2), -4]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 3/2 and I3 == -3/2:
-            return (np.sqrt(3) * B(-3/2) * A(0) - np.sqrt(2) * B(-1/2) * A(-1))/(np.sqrt(5))
+            state = [(0, -3/2), (-1, -1/2)]
+            super_position_factors = [np.sqrt(3), -np.sqrt(2)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 5/2 and I3 == 5/2:
-            return B(3/2) * A(1)
+            state = [(1, 3/2)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 5/2 and I3 == 3/2:
-            return (np.sqrt(3) * B(1/2) * A(1) + np.sqrt(2) * B(3/2) * A(0))/(np.sqrt(5))
+            state = [(1, 1/2), (0, 3/2)]
+            super_position_factors = [np.sqrt(3), np.sqrt(2)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 5/2 and I3 == 1/2:
-            return (3 * B(-1/2) * A(1) + 3 * np.sqrt(2) * B(1/2) * A(0) + np.sqrt(3) * B(3/2) * A(-1))/(np.sqrt(30))
+            state = [(1, -1/2), (0, 1/2), (-1, 3/2)]
+            super_position_factors = [3, 3*np.sqrt(2), np.sqrt(3)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 5/2 and I3 == -1/2:
-            return (np.sqrt(3) * B(-3/2) * A(1) + 3 * np.sqrt(2) * B(-1/2) * A(0) + 3 * B(1/2) * A(-1))/(np.sqrt(30))
+            state = [(1, -3/2), (0, -1/2), (-1, 1/2)]
+            super_position_factors = [np.sqrt(3), 3*np.sqrt(2), 3]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 5/2 and I3 == -3/2:
-            return (np.sqrt(2) * B(-3/2) * A(0) + np.sqrt(3) * B(-1/2) * A(-1))/(np.sqrt(5))
+            state = [(0, -3/2), (-1, -1/2)]
+            super_position_factors = [np.sqrt(2), np.sqrt(3)]
+            overall_normalization = normalize_function(super_position_factors)
         elif I == 5/2 and I3 == -5/2:
-            return B(-3/2) * A(-1)    
+            state = [(-1, -3/2)]
+            super_position_factors = [1]
+            overall_normalization = normalize_function(super_position_factors)
     else:
         raise ValueError(f"Representation {rep} not implemented")
+    
+    return state, super_position_factors, overall_normalization
 
-    return None  # Return None if no matching I, I3 combination found
+
+colins_reps = [[1/2, 1/2], [1/2, 1], [1, 1], [1/2, 3/2], [1, 3/2]]
+State_Detector = {'Delta': 3/2, 'Sigma': 1, 'Nucleon': 1/2, 'Xi': 1/2, 'Lambda': 0, 'Omega': 0,
+                  'Kaon': 1/2, 'KaonC': 1/2, 'Pion': 1, 'sigma': 0, 'Phi': 0, 'DMeson': 1, 'Eta': 0}
+
+def twoHO(rep=None, I=None, I3=None, A=None, B=None):
+    name_A = A.__name__
+    name_B = B.__name__
+    IA     = rep[0]
+    IB     = rep[1]
+    if State_Detector[name_A] == IA and  State_Detector[name_B] == IB:
+        if list(rep) in colins_reps:
+            state, sprpstnFF, Overall_N = TwoHadronAnnihilation(rep=rep, I=I, I3=I3)
+            N = len(state)
+            if N != len(sprpstnFF):
+                raise ValueError('Failed to identify the two Hadrons')
+            hadron = [Overall_N * sprpstnFF[i] * A(state[i][0]) * B(state[i][1]) for i in range(N)]
+            hadrons = hadron[0]
+            for i in range(1, N):
+                hadrons += hadron[i]
+            return hadrons
+        elif list(reversed(list(rep))) in colins_reps:
+            state, sprpstnFF, Overall_N =  TwoHadronAnnihilation(rep=list(reversed(list(rep))), I=I, I3=I3)
+            N = len(state)
+            if N != len(sprpstnFF):
+                raise ValueError('Failed to identify the two Hadrons')
+            hadron = [Overall_N * sprpstnFF[i] * A(state[i][1]) * B(state[i][0]) for i in range(N)]
+            hadrons = hadron[0]
+            for i in range(1, N):
+                hadrons += hadron[i]
+            return hadrons
+        else:
+            raise ValueError('Failed to identify the two Hadrons')
+    else:
+        raise ValueError(f'For rep {rep}, First Hadron A is expected to be {IA} while Second Hadron B {IB}')
