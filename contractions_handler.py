@@ -2152,9 +2152,15 @@ def diagramplot(diagram):
                 ax.add_patch(hadronP)
 ####
     if len(hdrns_t) == 2:
-        y_ver = {0 : 1, 1: 1}
-        ax.text(1, 3 * hadron_ts + 4.5, 'snk', fontsize=15, ha='center', va='center', color='gray', weight='bold')
-        ax.text(3 * time_slices, 3 * hadron_ts + 4.5, 'src', fontsize=15, ha='center', va='center', color='gray', weight='bold')
+        y_ver = {0 : 1, 1: 1, 2:1}
+        time_slice_keys = list(hdrns_t.keys())
+        snk_exist = True if 1 in time_slice_keys else False
+        src_exist = True if 0 in time_slice_keys else False
+        snk_label = 'snk' if snk_exist else 'J'
+        src_label = 'src' if src_exist else 'J'
+        ax.text(1, 3 * hadron_ts + 4.5, snk_label, fontsize=15, ha='center', va='center', color='gray', weight='bold')
+        ax.text(3 * time_slices, 3 * hadron_ts + 4.5, src_label, fontsize=15, ha='center', va='center', color='gray', weight='bold')
+        current_exist   = True if 2 in time_slice_keys else False
         for timslice in hdrns_t:
             for hadron in hdrns_t[timslice]:
                 yco = 3 * hadron_ts + 2 * y_ver[hadron.gtm()]
@@ -2177,8 +2183,27 @@ def diagramplot(diagram):
                         T[(hadron.gtm(), quark.ghdrn_t(), hadron.gnmbr(), quark.gqrk_hdrn_p())] = (xco , yco + 1 - i)
                     y_ver[hadron.gtm()] -= 2
                     ax.add_patch(hadronP)
+                elif timslice == 2 and (not snk_exist):
+                    hadronP = patches.Ellipse((1, yco), width=1, height=3, edgecolor='black', facecolor=sky_blue, lw=2)
+                    ax.text(0, yco+1, hadron.ghdrn_t(), fontsize=10, ha='center', va='center', color='black')
+                    ax.text(0, yco+0.5, f"({hadron.gnmbr()})", fontsize=10, ha='center', va='center', color='black')
+                    for i, quark in enumerate(hadron.ghdrn().O()):
+                        ax.text(1 , yco + 1 - i, quark.gqrk_hdrn_p(), fontsize=14, ha='center', va='center', color='black')
+                        T[(hadron.gtm(), quark.ghdrn_t(), hadron.gnmbr(), quark.gqrk_hdrn_p())] = (1 , yco + 1 - i)
+                    y_ver[hadron.gtm()] -= 2
+                    ax.add_patch(hadronP)
+                elif timslice == 2 and (not src_exist):
+                    xco = 3 * time_slices
+                    hadronP = patches.Ellipse((xco, yco), width=1, height=3, edgecolor='black', facecolor=sky_blue, lw=2)
+                    ax.text(xco + 1, yco+1, hadron.ghdrn_t(), fontsize=10, ha='center', va='center', color='black')
+                    ax.text(xco + 1, yco+0.5, f"({hadron.gnmbr()})", fontsize=10, ha='center', va='center', color='black')
+                    for i, quark in enumerate(hadron.ghdrn().O()):
+                        ax.text(xco , yco + 1 - i, quark.gqrk_hdrn_p(), fontsize=14, ha='center', va='center', color='black')
+                        T[(hadron.gtm(), quark.ghdrn_t(), hadron.gnmbr(), quark.gqrk_hdrn_p())] = (xco , yco + 1 - i)
+                    y_ver[hadron.gtm()] -= 2
+                    ax.add_patch(hadronP)
                 else:
-                    raise TypeError("Two time slices are given, but they do not correspond to sink and source (1, 0)")
+                    raise TypeError("Two time slices are given, but they do not correspond (1,0), (1,2) or (0,2)")
     elif len(hdrns_t) == 3:
         y_ver = {0 : 1, 1: 1, 2: 1}
         ax.text(1, 3 * hadron_ts + 4.5, 'snk', fontsize=15, ha='center', va='center', color='gray', weight='bold')
