@@ -1,10 +1,11 @@
 from PyTorTractor_SingleHadron import *
 
 class PyCorrTorch():
-    def __init__(self, SinkTime = None, SourceTime = None, 
+    def __init__(self, SinkTime = None, SourceTime = None, current_time = None,
                  Hadrons = None, Path_Wicktract = None):
         self.SinkTime          = SinkTime
         self.SourceTime        = SourceTime
+        self.current_time       = current_time
         self.Path_Wicktract    = Path_Wicktract
 
         Decomposed_Hadrons = Hadrons[0]
@@ -18,16 +19,17 @@ class PyCorrTorch():
           ...
             }
         '''
-    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
+    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None):
         final_result = 0.0
         for i, combi in enumerate(self.Hadrons_Map):
             print('______')
             hadrons    = self.Hadrons_Map[combi]['Hadrons']
             num_Factor = self.Hadrons_Map[combi]['Factor']
-            do_contration0 = PyCorrTorch_SingleCor(SinkTime = self.SinkTime, SourceTime = self.SourceTime, 
+            do_contration0 = PyCorrTorch_SingleCor(SinkTime = self.SinkTime, SourceTime = self.SourceTime, current_time = self.current_time,
                                                    Hadrons = hadrons, Path_Wicktract = self.Path_Wicktract)
             do_contration1 = do_contration0.TorchTractor_SingleCor(All_Perambulators = All_Perambulators, 
-                                                                  ModeDoublets = ModeDoublets, ModeTriplets = ModeTriplets)
+                                                                   ModeDoublets = ModeDoublets, ModeTriplets = ModeTriplets,
+                                                                   all_SG_perambulators = all_SG_perambulators)
             print(do_contration1)
             do_contration2 = combine_all(do_contration1)
             res = do_contration2 * num_Factor

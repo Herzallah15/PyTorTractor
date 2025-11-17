@@ -67,23 +67,61 @@ stack_index_map = {0: 'y',
                    15: 'O',
                    16: 'B',
                    17: 'Q',
-                   18: 'R',
-                   19: 'S',
-                   20: 'T',
-                   21: 'U',
-                   22: 'V',
-                   23: 'W',
-                   24: 'X',
-                   25: 'Y',
-                   26: 'Z'}
+                   18: 'R'
+                  }
+SG_Cindex_map = {
+    (2,0,0): 'Z',
+    (2,0,1): 'Z',
+    
+    (2,1,0): 'X',
+    (2,1,1): 'X',
+    
+    (2,2,0): 'V',
+    (2,2,1): 'V',
+    
+    (2,3,0): 'T',
+    (2,3,1): 'T'
+}
+SG_Xindex_map = {    
+    (2,0,0): 'Y',
+    (2,0,1): 'Y',
+    
+    (2,1,0): 'W',
+    (2,1,1): 'W',
+    
+    (2,2,0): 'U',
+    (2,2,1): 'U',
+    
+    (2,3,0): 'S',
+    (2,3,1): 'S'
+}
 def stacker(P_Naive):
     return [torch.stack(list(row)) for row in zip(*P_Naive)]
-
-def Perambulator_Extractor(all_perambulators = None, exp_prmp_container = None, snktime = None, srctime = None):
+def TorchPhase(MomentumTuple, CoordinateTuple0, Coordinates_Meta, Device, DType, Ngrid):
+    CoordinateTuple1 = Coordinates_Meta['Coordinates']
+    P_Meta = Coordinates_Meta['Ls']
+    MomentumTuple = MomentumTuple[0]
+    MomentumTuple = [2 * torch.pi * (MomentumTuple[i] / P_Meta[i]) for i in range(3)]
+    grid_coordinates = []
+    if Ngrid != len(CoordinateTuple1):
+        raise ValueError('Failed to identiy the grid coordinates')
+    for i in range(Ngrid):
+        SP3 = 0j
+        for k in range(3):
+            SP3 += MomentumTuple[k] * (CoordinateTuple0[k] + CoordinateTuple1[i][k])
+        grid_coordinates.append(SP3)
+    grid_tensor = torch.tensor(grid_coordinates, device=Device, dtype=DType)
+    return torch.exp(-1j * grid_tensor)
+def Perambulator_Extractor(all_perambulators = None, all_SG_perambulators = None, 
+                           exp_prmp_container = None, snktime = None, srctime = None, current_time=None, Hadron_Momenta = None):
     Prmp_Indices_In  = ''
     Prmp_Tensors = []
     seen_hadron  = set()
+    spars_perambulators = []
     for perambulator in exp_prmp_container:
+        if (perambulator.getH()[0] in [2, 3]) or (perambulator.getH_Bar()[0] in [2, 3]):
+            spars_perambulators.append(perambulator)
+            continue
         num_factor   = 1.0
         if perambulator.getH() not in seen_hadron:
             seen_hadron.add(perambulator.getH())
@@ -107,6 +145,75 @@ def Perambulator_Extractor(all_perambulators = None, exp_prmp_container = None, 
         else:
             raise ValueError('Error in extracting perambulators from the Perambulator_Tensor_Dict')
         Prmp_Tensors.append(all_perambulators[prmp_flavor][time][s, s_Bar, :, :] * num_factor)
+    if all_SG_perambulators is not None:
+        Geomertry = {'Light': {}, 'Strange': {}, 'Charm': {}}
+        for flavors in all_SG_perambulators:
+            if all_SG_perambulators[flavors] is not None:
+                Geomertry[flavors]['Coordinate_Offset'] = all_SG_perambulators[flavors][1]['Momentum_offsets']
+                Geomertry[flavors]['Coordinates'] = all_SG_perambulators[flavors][1]['Momentum_onshell']
+                Geomertry[flavors]['Ngrid'] = all_SG_perambulators[flavors][1]['Ngrid']
+    sparsgrids_contracter = {}
+    for perambulator in spars_perambulators:
+        prmp_flavor       = perambulator.getFlavor()
+        num_factor   = 1.0
+        if perambulator.getH() not in seen_hadron:
+            seen_hadron.add(perambulator.getH())
+            num_factor *= perambulator.getFF_H()
+        if perambulator.getH_Bar() not in seen_hadron:
+            seen_hadron.add(perambulator.getH_Bar())
+            num_factor *= perambulator.getFF_H_Bar()
+        s,s_Bar = perambulator.getS() - 1, perambulator.getS_Bar() - 1
+        Q_Info, Q_Bar_Info = perambulator.getQ(), perambulator.getQ_Bar()
+        if (perambulator.getH()[0] in [2, 3]) and (perambulator.getH_Bar()[0] in [0, 1]):
+            htime = srctime if perambulator.getH_Bar()[0] == 0 else snktime
+            time         = f'srcTime{htime}_snkTime{current_time}'
+            XCI_Indices  = SG_Xindex_map[Q_Info] +  SG_Cindex_map[Q_Info] + index_map[Q_Bar_Info]
+            I_Indices    = index_map[Q_Bar_Info]
+            Spars_Hadron = tuple(perambulator.getH())
+            P_Mom        = tuple(Hadron_Momenta[perambulator.getH()])
+        elif (perambulator.getH()[0] in [0, 1]) and (perambulator.getH_Bar()[0] in [2, 3]):
+            htime = srctime if perambulator.getH()[0] == 0 else snktime
+            time = f'ex_srcTime{htime}_snkTime{current_time}'
+            XCI_Indices  = SG_Xindex_map[Q_Bar_Info] +  SG_Cindex_map[Q_Bar_Info] + index_map[Q_Info]
+            I_Indices    = index_map[Q_Info]
+            Spars_Hadron = tuple(perambulator.getH_Bar())
+            P_Mom = tuple(Hadron_Momenta[perambulator.getH_Bar()])
+        elif (perambulator.getH()[0] == perambulator.getH_Bar()[0]) and (perambulator.getH()[0] in [2, 3]):
+            raise TypeError('Current Version does not handle loop in a current')
+        else:
+            raise ValueError('Failed to extract SparsGridPerambulator')
+        if Spars_Hadron not in sparsgrids_contracter:
+            sparsgrids_contracter[Spars_Hadron] = {'SparsP': [], 'in': [], 'out': [], 'Momentum': set(), 'flavor': prmp_flavor}
+        sparsgrids_contracter[Spars_Hadron]['SparsP'].append(all_SG_perambulators[prmp_flavor][0][time][s, s_Bar, :, :, :] * num_factor)
+        sparsgrids_contracter[Spars_Hadron]['in'].append(XCI_Indices)
+        sparsgrids_contracter[Spars_Hadron]['out'].append(I_Indices)
+        sparsgrids_contracter[Spars_Hadron]['Momentum'].add(P_Mom)
+    if len(sparsgrids_contracter) != 0:
+        for SG_P in sparsgrids_contracter:
+            Pmom = list(sparsgrids_contracter[SG_P]['Momentum'])
+            if len(Pmom) != 1:
+                raise ValueError('Failed to access SP_Perambulator Infos')
+            if {len(sparsgrids_contracter[SG_P]['SparsP']), len(sparsgrids_contracter[SG_P]['in']), len(sparsgrids_contracter[SG_P]['out'])} != {2}:
+                raise ValueError('Failed to access SP_Perambulator Infos')
+            sprsI = sparsgrids_contracter[SG_P]['out'][0] + sparsgrids_contracter[SG_P]['out'][1]
+            Prmp_Indices_In += sprsI + ','
+            sprcCX1 = sparsgrids_contracter[SG_P]['in'][0]
+            sprcCX2 = sparsgrids_contracter[SG_P]['in'][1]
+            sprsCX  = sprcCX1 + ',' + sprcCX2
+            if sprcCX1[:2] != sprcCX2[:2]:
+                raise ValueError('Failed to multiply with Momentum Phase')
+            Pix = sprcCX1[0]
+            sparsDevice, sparsDtype = sparsgrids_contracter[SG_P]['SparsP'][0].device, sparsgrids_contracter[SG_P]['SparsP'][0].dtype
+            Coordinate_Offset = Geomertry[sparsgrids_contracter[SG_P]['flavor']]['Coordinate_Offset'][current_time]
+            Coordinates = Geomertry[sparsgrids_contracter[SG_P]['flavor']]['Coordinates']
+            Ngrid = Geomertry[sparsgrids_contracter[SG_P]['flavor']]['Ngrid']
+            if Pmom[0] != (0,0,0):
+                Prmp_Tensors.append(torch.einsum(f'{sprsCX},{Pix}->{sprsI}', sparsgrids_contracter[SG_P]['SparsP'][0],
+                                                 sparsgrids_contracter[SG_P]['SparsP'][1], TorchPhase(Pmom, Coordinate_Offset, Coordinates,
+                                                                                                      sparsDevice, sparsDtype, Ngrid)))
+            else:
+                Prmp_Tensors.append(torch.einsum(f'{sprsCX}->{sprsI}', sparsgrids_contracter[SG_P]['SparsP'][0],
+                                                 sparsgrids_contracter[SG_P]['SparsP'][1]))
     return Prmp_Indices_In[:-1], Prmp_Tensors
 
 def Perambulator_Mode_Handler_PStacked(Full_Cluster = None, All_Mode_Info = None,
@@ -200,9 +307,9 @@ if True:
             cntrctns_cntr+=1
         return clusters_with_kies_copy, self.WT_numerical_factors
 '''
-def Perambulator_Mode_Handler(Full_Cluster = None, All_Mode_Info = None,
+def Perambulator_Mode_Handler(Full_Cluster = None, all_SG_perambulators = None, All_Mode_Info = None,
                              snktime = None, srctime=None, Mode_Unsplitted_Index = None,
-                             Prmbltr = None, ModeD = None, ModeT = None):
+                             Prmbltr = None, ModeD = None, ModeT = None, current_time=None, Hadron_Momenta = None):
     # Find all Modes, which are equivalent
     unique_mode_paths = {}
     for i, path in enumerate(All_Mode_Info):
@@ -246,9 +353,9 @@ def Perambulator_Mode_Handler(Full_Cluster = None, All_Mode_Info = None,
         Mode_Container = []
         all_clusters_numbers = unique_mode_paths[unique_path]['ExplicitPerambulators'].copy()
         for cluster_number in all_clusters_numbers:
-            Ps_indices_0, Ps_List = Perambulator_Extractor(all_perambulators = Prmbltr,
+            Ps_indices_0, Ps_List = Perambulator_Extractor(all_perambulators = Prmbltr, all_SG_perambulators = all_SG_perambulators,
                                                          exp_prmp_container = Full_Cluster[cluster_number],
-                                                         snktime = snktime, srctime = srctime)
+                                                         snktime = snktime, srctime = srctime, current_time=current_time, Hadron_Momenta = Hadron_Momenta)
             if cntr == 0:
                 Ps_indices = Ps_indices_0
                 cntr += 1

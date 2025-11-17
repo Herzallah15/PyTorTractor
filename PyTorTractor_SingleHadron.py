@@ -3,13 +3,17 @@ from PyTor_S_Definitions import *
 import os, psutil
 
 class PyCorrTorch_SingleCor:
-    def __init__(self, SinkTime = None, SourceTime = None, 
+    def __init__(self, SinkTime = None, SourceTime = None, current_time = None, 
                  Hadrons = None, Path_Wicktract = None):
         self.SinkTime          = SinkTime
         self.SourceTime        = SourceTime
+        self.current_time       = current_time
         self.Hadrons           = Hadrons
         self.Path_Wicktract    = Path_Wicktract
-
+        hadron_momentum_map = {}
+        for hadron in self.Hadrons:
+            hadron_momentum_map[hadron.getHadron_Position()] = tuple(hadron.getMomentum())
+        self.hadron_momentum_map = hadron_momentum_map
 
         # part which is commented out. Called PART_OUTCOMMENT_0
         # Cluster the Diagrams
@@ -44,7 +48,7 @@ class PyCorrTorch_SingleCor:
                                for inner_key, prpm_container in inner_dict.items()]
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
 
-    def TorchTractor_SingleCor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None):
+    def TorchTractor_SingleCor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None):
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
         if (ModeDoublets is None) and (ModeTriplets is None):
@@ -58,11 +62,14 @@ class PyCorrTorch_SingleCor:
             all_Modes_Paths   = full_cluster[1][0]['MDT_Info']
             mode_indices      = ','.join(full_cluster[1][0]['Mode_Index_Info'])
             Ps_indices, Mode_Indices, Stacked_Ps, Stacked_Ms  = Perambulator_Mode_Handler(Full_Cluster = all_cluter_info,
-                                                                                             All_Mode_Info = all_Modes_Paths,
-                                                                                             snktime = self.SinkTime, srctime=self.SourceTime,
-                                                                                             Mode_Unsplitted_Index = mode_indices,
-                                                                                             Prmbltr = All_Perambulators, ModeD = ModeDoublets,
-                                                                                             ModeT = ModeTriplets)
+                                                                                          All_Mode_Info = all_Modes_Paths,
+                                                                                          snktime = self.SinkTime, srctime=self.SourceTime,
+                                                                                          Mode_Unsplitted_Index = mode_indices,
+                                                                                          Prmbltr = All_Perambulators, ModeD = ModeDoublets,
+                                                                                          ModeT = ModeTriplets,
+                                                                                          all_SG_perambulators = all_SG_perambulators,
+                                                                                          Hadron_Momenta = self.hadron_momentum_map,
+                                                                                          current_time= self.current_time)
             try:
                 res = torch.einsum(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps).sum()
             except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:

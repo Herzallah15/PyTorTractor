@@ -13,6 +13,7 @@ from TorClasses import *
 from contractions_handler import *
 from Hadrontractions_Converter import *
 from Hadron_Info_Converter import *
+import re
 
 erp_0 = 'Unrecognized path. When including displacement, the path is expected to be of the form px(int)_py(int)_pz(int)_ddir(int)_dlen(int)_t(int)'
 erp_1 = 'When including displacement, the path is expected to be of the form px(int)_py(int)_pz(int)_ddir0_dlen0_t(int)'
@@ -133,16 +134,34 @@ stack_index_map = {0: 'y',
                    15: 'O',
                    16: 'B',
                    17: 'Q',
-                   18: 'R',
-                   19: 'S',
-                   20: 'T',
-                   21: 'U',
-                   22: 'V',
-                   23: 'W',
-                   24: 'X',
-                   25: 'Y',
-                   26: 'Z'}
-
+                   18: 'R'
+                  }
+SG_Cindex_map = {
+    (2,0,0): 'Z',
+    (2,0,1): 'Z',
+    
+    (2,1,0): 'X',
+    (2,1,1): 'X',
+    
+    (2,2,0): 'V',
+    (2,2,1): 'V',
+    
+    (2,3,0): 'T',
+    (2,3,1): 'T'
+}
+SG_Xindex_map = {    
+    (2,0,0): 'Y',
+    (2,0,1): 'Y',
+    
+    (2,1,0): 'W',
+    (2,1,1): 'W',
+    
+    (2,2,0): 'U',
+    (2,2,1): 'U',
+    
+    (2,3,0): 'S',
+    (2,3,1): 'S'
+}
 '''
 spin_index_map = {
     (1,0,0): 'A',
@@ -663,3 +682,69 @@ def MDT_Laph(MDT_Info = None, snktime = None, srctime=None, ModeD = None, ModeT 
         #    self.MT_SuperTensor = MT_SuperTensor
         #    print(r'MT_Tensor has been successfully constructed')
 
+def GridCoordinateConverter(NGrid, LatticeExtent, GridSpacing):
+    coordinates = []
+    lx, ly, lz = LatticeExtent[0]/GridSpacing, LatticeExtent[1]/GridSpacing, LatticeExtent[2]/GridSpacing
+    for r in range(NGrid):
+        B = r // lx
+        z = B // ly
+        y = B - z * ly
+        x = r - (z*ly + y)*lx
+        coordinates.append((x*lx,y*ly,z*lz))
+    return {'Coordinates': coordinates, 'Ls': (LatticeExtent[0], LatticeExtent[1], LatticeExtent[2])}
+def PyTor_SG_Perambulator(Path_Sparse_Grid = None, LatticeExtent = None ,Device = None, Double_Reading = False, cplx128 = True, vebose = False):
+    if cplx128:
+        data_type = torch.complex128
+    else:
+        data_type = torch.complex64
+    P_SuperTenspr_Dict = {}
+    seen_gropus        = set()
+    if isinstance(Path_Sparse_Grid, str):
+        Path_All_Sparse_Grid = [Path_Sparse_Grid]
+    else:
+        Path_All_Sparse_Grid = Path_Sparse_Grid
+    for One_Path_Perambulator in Path_All_Sparse_Grid:
+        with h5py.File(One_Path_Perambulator, 'r') as yunus:
+            yunus01 = yunus[f'/PerambulatorSparseGridData']
+            Yns     = yunus01.attrs['Header']
+            Nev     = int(Yns.split('<NumberLaphEigvecs>')[1].split('</NumberLaphEigvecs>')[0])
+            grd     = float(Yns.split('<GridSpacing>')[1].split('</GridSpacing>')[0])
+            Ncolor  = 3
+            offsets_str = re.search(r"<Offsets>(.*?)</Offsets>", Yns.decode() if isinstance(Yns, bytes) else Yns).group(1)
+            numbers = list(map(int, offsets_str.split()))
+            offsets = [(numbers[i], numbers[i+1], numbers[i+2]) for i in range(0, len(numbers), 3)]
+            for t_c, srcTime_snkTime_group in enumerate(yunus01):
+                if srcTime_snkTime_group in seen_gropus and not Double_Reading:
+                    print(f'The group {srcTime_snkTime_group} appears more than one time! Add Double_Reading = True')
+                    print('or provide Path_Perambulator that contain only unique groups of srcTime_snkTime')
+                    raise ValueError('Error in reading data from Path_Perambulator')
+                else:
+                    seen_gropus.add(srcTime_snkTime_group)
+                yunus1        = yunus01[f'{srcTime_snkTime_group}']
+                if yunus1['srcSpin1']['snkSpin1']['re'].ndim != 1:
+                    raise ValueError('Failed to read Spars_Grid_Perambulators!')
+                Total_Length  = yunus1['srcSpin1']['snkSpin1']['re'].shape[0]
+                Ngrid         = int(Total_Length / (Nev * Ncolor))
+                P_SuperTensor = torch.zeros((4, 4, Ngrid, Ncolor, Nev), dtype=data_type)
+                for i in range(4):
+                    for j in range(4):
+                        P_SuperTensor[i, j, :, :, :] = torch.complex(
+                            torch.from_numpy(
+                                yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['re'][:]).reshape(Ngrid, Ncolor, Nev), 
+                            torch.from_numpy(
+                                yunus1['srcSpin'+str(j+1)]['snkSpin'+str(i+1)]['im'][:]).reshape(Ngrid, Ncolor, Nev))   
+                P_SuperTenspr_Dict[srcTime_snkTime_group] = P_SuperTensor.to(Device)
+            for srcTime_snkTime_group in seen_gropus:
+                ex_srcsnk = 'ex_'+srcTime_snkTime_group
+                #ex_srcsnk = srcsnk_exchanger(srcTime_snkTime_group)
+                #if ex_srcsnk in seen_gropus:
+                #    continue
+                g5                            = gamma(5, data_type).to(Device)
+                g4                            = gamma(4, data_type).to(Device)
+                gM                            = torch.matmul(g5, g4)
+                P_SuperTenspr_Dict[ex_srcsnk] = torch.einsum('ij,jngcl,nk->kigcl', gM, P_SuperTenspr_Dict[srcTime_snkTime_group], gM).conj()
+                if vebose:
+                    print(f' SG_Perambulator for {ex_srcsnk} has been constructed using infos about {srcTime_snkTime_group}!')
+    print(r'SG_Perambulator_Tensor has been successfully constructed')
+    coordinate_informations = GridCoordinateConverter(Ngrid, LatticeExtent, grd)
+    return P_SuperTenspr_Dict, {'Momentum_offsets': offsets, 'Momentum_onshell': coordinate_informations, 'Ngrid': Ngrid}

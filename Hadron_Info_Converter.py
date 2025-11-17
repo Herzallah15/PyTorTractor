@@ -289,7 +289,7 @@ class ExplicitPerambulator:
     def getFF_H(self):
         if self.getH()[0] == 0:
             ff1 = self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item().conjugate()
-        elif self.getH()[0] == 1:
+        elif self.getH()[0] in [1, 2, 3]:
             ff1 = self.onecomb_info[tuple(self.getPerambulator().getH().tolist())]['Factor'].item()
         else:
             raise ValueError('A hadron can be either on sink 1 or source 0')
@@ -297,7 +297,7 @@ class ExplicitPerambulator:
     def getFF_H_Bar(self):
         if self.getH_Bar()[0] == 0:
             ff2 = self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item().conjugate()
-        elif self.getH_Bar()[0] == 1:
+        elif self.getH_Bar()[0] in [1, 2, 3]:
             ff2 = self.onecomb_info[tuple(self.getPerambulator().getH_Bar().tolist())]['Factor'].item()
         else:
             raise ValueError('A hadron can be either on sink 1 or source 0')
@@ -318,6 +318,8 @@ class ExplicitPerambulator_Container_OneComb:
         hadrons_all   = set(hadrons_all)
         mom_dis_paths, index_list = [], []
         for hadron in hadrons_all:
+            if hadron[0] in [2, 3]:
+                continue
             q0, q1 = hadron + (0,), hadron + (1,)
             contraction_indices = index_map[q0] + index_map[q1]
             MomDis_Info = self.onecomb_info[hadron]['MomDis']
