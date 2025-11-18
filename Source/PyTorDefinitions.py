@@ -434,7 +434,7 @@ def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selec
     print(r'MD_Tensor has been successfully constructed')
     return MD_SuperTensor_Dict
 
-def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Triplet_Identity = None, verbose = False):
+def PyTor_MTriplet_Full(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Triplet_Identity = None, verbose = False):
     if cplx128:
         data_type = torch.complex128
     else:
@@ -748,3 +748,110 @@ def PyTor_SG_Perambulator(Path_Sparse_Grid = None, LatticeExtent = None ,Device 
     print(r'SG_Perambulator_Tensor has been successfully constructed')
     coordinate_informations = GridCoordinateConverter(Ngrid, LatticeExtent, grd)
     return P_SuperTenspr_Dict, {'Momentum_offsets': offsets, 'Momentum_onshell': coordinate_informations, 'Ngrid': Ngrid}
+
+
+
+
+
+
+def is_SS(group):
+    return group.split('_')[3][4:] == '0'
+def PyTor_MTriplet_Compressed(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None,
+                              Use_Triplet_Identity = None, verbose = False, nEv = None):
+    if cplx128:
+        data_type = torch.complex128
+    else:
+        data_type = torch.complex64
+    if (Use_Triplet_Identity is not None) and not isinstance(Use_Triplet_Identity, (bool, str, set, list, tuple)):
+        raise TypeError(f'The argument Use_Triplet_Identity can be either bool, str, set, list or tuple!')
+    MT_SuperTensor_Dict = {}
+    with h5py.File(Path_ModeTriplet, 'r') as yunus:
+        yunus1 = yunus['/ModeTripletData']
+        if Selected_Groups is not None:
+            if isinstance(Selected_Groups, str):
+                selected_pathes = [Selected_Groups]
+            else:
+                selected_pathes = Selected_Groups
+        else:
+            selected_pathes = [group for group in yunus1]
+        if any(group.split('_')[4].startswith("dlen") for group in selected_pathes):
+            test_the_path = [check_path_MDT(test_path) for test_path in selected_pathes]
+            del test_the_path
+        for i, group in enumerate(selected_pathes):
+            if i == 0:
+                if yunus1[group]['re'].ndim != 1:
+                    raise ValueError('Failed to read the ModeDoublets')
+
+            regenerated_Triplet = torch.zeros((nEv, nEv, nEv), dtype=data_type, device = Device)
+            buff = torch.complex(torch.from_numpy(yunus1[group]['re'][:]),
+                                 torch.from_numpy(yunus1[group]['im'][:])).to(dtype=data_type).to(Device)
+            eVctr = 0
+            if is_SS(group):
+                expected_len = nEv * (nEv - 1) * (nEv - 2) // 6
+                if expected_len != len(buff):
+                    raise ValueError('Failed to converte the compressed MT')
+                for aEv in range(nEv):
+                    for bEv in range(aEv + 1, nEv):
+                        for cEv in range(bEv + 1, nEv):
+                            # Assign all antisymmetric permutations
+                            regenerated_Triplet[aEv, bEv, cEv] = buff[eVctr]
+                            regenerated_Triplet[aEv, cEv, bEv] = -buff[eVctr]
+                            regenerated_Triplet[bEv, cEv, aEv] = buff[eVctr]
+                            regenerated_Triplet[bEv, aEv, cEv] = -buff[eVctr]
+                            regenerated_Triplet[cEv, aEv, bEv] = buff[eVctr]
+                            regenerated_Triplet[cEv, bEv, aEv] = -buff[eVctr]
+                            eVctr += 1
+            else:
+                expected_len = nEv * nEv * (nEv - 1) // 2
+                if expected_len != len(buff):
+                    raise ValueError('Failed to converte the compressed MT')
+                for aEv in range(nEv):
+                    for bEv in range(nEv):
+                        for cEv in range(bEv + 1, nEv):
+                            regenerated_Triplet[aEv, bEv, cEv] = buff[eVctr]
+                            regenerated_Triplet[aEv, cEv, bEv] = -buff[eVctr]
+                            eVctr += 1
+            MT_SuperTensor_Dict[group] = regenerated_Triplet
+    if Use_Triplet_Identity is not None:
+        if isinstance(Use_Triplet_Identity, bool):
+            if Use_Triplet_Identity:
+                re_construct_group = [group for group in MT_SuperTensor_Dict]
+            else:
+                print(r'MT_Tensor has been successfully constructed')
+                return MT_SuperTensor_Dict
+        elif isinstance(Use_Triplet_Identity, str):
+            re_construct_group = [Use_Triplet_Identity]
+        elif isinstance(Use_Triplet_Identity, (set, list, tuple)):
+            re_construct_group = list(Use_Triplet_Identity)
+        for group in re_construct_group:
+            if group.split('_')[3].split('ddir')[1] != '0':
+                if group.split('_')[-2][:4]=='dlen':
+                    dln = group.split('_')[-2]
+                else:
+                    dln = ''
+                displacement_q2 = group.split('ddir')[0]+'ddir0_'+group.split('_')[3].split('ddir')[1]+'_0_'+ dln + '_' + group.split('_')[-1]
+                displacement_q3 = group.split('ddir')[0]+'ddir00_'+group.split('_')[3].split('ddir')[1]+'_' + dln + '_'+ group.split('_')[-1]
+                MT_SuperTensor_Dict[displacement_q2] = -1 * MT_SuperTensor_Dict[group].permute(1,0,2)
+                MT_SuperTensor_Dict[displacement_q3] = torch.einsum('kij->ijk', MT_SuperTensor_Dict[group])
+                if verbose:
+                    print(f'The groups {displacement_q2} and {displacement_q3} have been constructed from {group}')  
+    print(r'MT_Tensor has been successfully constructed')
+    return MT_SuperTensor_Dict
+
+def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None,
+                        Use_Triplet_Identity = None, verbose = False, Compressed = False, nEv = None):
+    if not Compressed:
+        return PyTor_MTriplet_Full(Path_ModeTriplet = Path_ModeTriplet, Device = Device, cplx128 = cplx128,
+                            Selected_Groups = Selected_Groups, Use_Triplet_Identity = Use_Triplet_Identity, verbose = verbose)
+    else:
+        if nEv is None:
+            raise ValueError('For compressed MT you need to specify nEv')
+        return PyTor_MTriplet_Compressed(Path_ModeTriplet = Path_ModeTriplet, Device = Device, cplx128 = cplx128,
+                                  Selected_Groups = Selected_Groups, Use_Triplet_Identity = Use_Triplet_Identity, verbose = verbose, nEv = nEv)
+'''
+Using:
+for group in all_groups:
+    if not torch.allclose(modeTripletCompact[group], modeTriplet[group], rtol=1e-15, atol=1e-15):
+        print(group)
+I made sure, I can re-produce the un-compressed results!
+'''
