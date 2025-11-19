@@ -2,11 +2,12 @@ from PyTorTractor_SingleHadron import *
 
 class PyCorrTorch():
     def __init__(self, SinkTime = None, SourceTime = None, current_time = None,
-                 Hadrons = None, Path_Wicktract = None):
+                 Hadrons = None, Path_Wicktract = None, Wick_subpath = None):
         self.SinkTime          = SinkTime
         self.SourceTime        = SourceTime
         self.current_time       = current_time
         self.Path_Wicktract    = Path_Wicktract
+        self.Wick_subpath = Wick_subpath
 
         Decomposed_Hadrons = Hadrons[0]
         for hdrn in Hadrons[1:]:
@@ -26,7 +27,7 @@ class PyCorrTorch():
             hadrons    = self.Hadrons_Map[combi]['Hadrons']
             num_Factor = self.Hadrons_Map[combi]['Factor']
             do_contration0 = PyCorrTorch_SingleCor(SinkTime = self.SinkTime, SourceTime = self.SourceTime, current_time = self.current_time,
-                                                   Hadrons = hadrons, Path_Wicktract = self.Path_Wicktract)
+                                                   Hadrons = hadrons, Path_Wicktract = self.Path_Wicktract, Wick_subpath = self.Wick_subpath)
             do_contration1 = do_contration0.TorchTractor_SingleCor(All_Perambulators = All_Perambulators, 
                                                                    ModeDoublets = ModeDoublets, ModeTriplets = ModeTriplets,
                                                                    all_SG_perambulators = all_SG_perambulators)

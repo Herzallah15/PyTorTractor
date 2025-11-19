@@ -4,12 +4,13 @@ import os, psutil
 
 class PyCorrTorch_SingleCor:
     def __init__(self, SinkTime = None, SourceTime = None, current_time = None, 
-                 Hadrons = None, Path_Wicktract = None):
+                 Hadrons = None, Path_Wicktract = None, Wick_subpath = None):
         self.SinkTime          = SinkTime
         self.SourceTime        = SourceTime
         self.current_time       = current_time
         self.Hadrons           = Hadrons
         self.Path_Wicktract    = Path_Wicktract
+        self.Wick_subpath      = Wick_subpath
         hadron_momentum_map = {}
         for hadron in self.Hadrons:
             hadron_momentum_map[hadron.getHadron_Position()] = tuple(hadron.getMomentum())
@@ -17,7 +18,7 @@ class PyCorrTorch_SingleCor:
 
         # part which is commented out. Called PART_OUTCOMMENT_0
         # Cluster the Diagrams
-        self.clusters, self.WT_numerical_factors = cluster_extractor(Path_Diagrams = self.Path_Wicktract)
+        self.clusters, self.WT_numerical_factors = cluster_extractor(Path_Diagrams = self.Path_Wicktract, Sub_Path = self.Wick_subpath)
 
 
         fullmap_hadrons = {}
