@@ -1,5 +1,5 @@
 from PyTorTractor_SingleHadron import *
-
+from Task import *
 class PyCorrTorch():
     def __init__(self, SinkTime = None, SourceTime = None, current_time = None,
                  Hadrons = None, Path_Wicktract = None, Wick_subpath = None):
