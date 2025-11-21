@@ -56,7 +56,8 @@ class PyCorrTorch_SingleCor:
                                for inner_key, prpm_container in inner_dict.items()]
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
 
-    def TorchTractor_SingleCor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None):
+    def TorchTractor_SingleCor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None,
+                              optimal_path = True):
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
         if (ModeDoublets is None) and (ModeTriplets is None):
@@ -78,19 +79,36 @@ class PyCorrTorch_SingleCor:
                                                                                           all_SG_perambulators = all_SG_perambulators,
                                                                                           Hadron_Momenta = self.hadron_momentum_map,
                                                                                           current_time= self.current_time)
-            normalized_pattern = NormalizePattern(Mode_Indices ,Ps_indices, Ps_indices[:2])
+            normalized_pattern = NormalizePattern(Mode_Indices, Ps_indices, Ps_indices[:2])
             shapes = tuple([tuple(t.shape) for t in [*Stacked_Ms, *Stacked_Ps]])
             cache_key = f"{normalized_pattern}_{shapes}"
-            if path_exists_in_hdf5(cache_key):
-                path = load_path_from_hdf5(cache_key)
+            if optimal_path:
+                if path_exists_in_hdf5(cache_key):
+                    path = load_path_from_hdf5(cache_key)
+                else:
+                    path_info = oe.contract_path(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize='optimal')
+                    path = path_info[0]
+                    save_path_to_hdf5(cache_key, path)
+                try:
+                    res = oe.contract(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize=path).sum()
+                except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
+                    raise TypeError('That should not happen!!!!!!')
             else:
-                path_info = oe.contract_path(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize='optimal')
-                path = path_info[0]
-                save_path_to_hdf5(cache_key, path)
-            try:
-                res = oe.contract(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize=path).sum()
-            except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
-                raise TypeError('That should not happen!!!!!!')
+                os.makedirs("jit_cache", exist_ok=True)
+                hash_key = hashlib.md5(cache_key.encode()).hexdigest()
+                cache_file = f"jit_cache/jit_{hash_key}.pt"
+                if os.path.exists(cache_file):
+                    traced_func = torch.jit.load(cache_file)
+                else:
+                    einsum_str = f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}'
+                    def einsum_contract(*tensors):
+                        return torch.einsum(einsum_str, *tensors)
+                    traced_func = torch.jit.trace(einsum_contract, (*Stacked_Ms, *Stacked_Ps))
+                    traced_func.save(cache_file)
+                try:
+                    res = traced_func(*Stacked_Ms, *Stacked_Ps).sum()
+                except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
+                    raise TypeError('That should not happen!!!!!!')
             clusters_with_kies_copy.append((full_cluster[0], res))
             #print(cntrctns_cntr)
             cntrctns_cntr+=1

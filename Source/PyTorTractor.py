@@ -20,7 +20,7 @@ class PyCorrTorch():
           ...
             }
         '''
-    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None):
+    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None, optimal_path = True):
         final_result = 0.0
         for i, combi in enumerate(self.Hadrons_Map):
             print('______')
@@ -30,7 +30,7 @@ class PyCorrTorch():
                                                    Hadrons = hadrons, Path_Wicktract = self.Path_Wicktract, Wick_subpath = self.Wick_subpath)
             do_contration1 = do_contration0.TorchTractor_SingleCor(All_Perambulators = All_Perambulators, 
                                                                    ModeDoublets = ModeDoublets, ModeTriplets = ModeTriplets,
-                                                                   all_SG_perambulators = all_SG_perambulators)
+                                                                   all_SG_perambulators = all_SG_perambulators, optimal_path = optimal_path)
             print(do_contration1)
             do_contration2 = combine_all(do_contration1)
             res = do_contration2 * num_Factor
