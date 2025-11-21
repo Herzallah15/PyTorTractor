@@ -1,5 +1,12 @@
 from PyTorDefinitions import *
 from PyTor_S_Definitions import *
+from SubDiagraming_jit import *
+import opt_einsum as oe
+import h5py
+import hashlib
+import pickle
+from pathlib import Path
+from typing import List, Tuple, Any
 import os, psutil
 
 class PyCorrTorch_SingleCor:
@@ -71,8 +78,17 @@ class PyCorrTorch_SingleCor:
                                                                                           all_SG_perambulators = all_SG_perambulators,
                                                                                           Hadron_Momenta = self.hadron_momentum_map,
                                                                                           current_time= self.current_time)
+            normalized_pattern = NormalizePattern(Mode_Indices ,Ps_indices, Ps_indices[:2])
+            shapes = tuple([tuple(t.shape) for t in [*Stacked_Ms, *Stacked_Ps]])
+            cache_key = f"{normalized_pattern}_{shapes}"
+            if path_exists_in_hdf5(cache_key):
+                path = load_path_from_hdf5(cache_key)
+            else:
+                path_info = oe.contract_path(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize='optimal')
+                path = path_info[0]
+                save_path_to_hdf5(cache_key, path)
             try:
-                res = torch.einsum(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps).sum()
+                res = oe.contract(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize=path).sum()
             except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
                 raise TypeError('That should not happen!!!!!!')
             clusters_with_kies_copy.append((full_cluster[0], res))

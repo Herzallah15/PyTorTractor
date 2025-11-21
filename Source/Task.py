@@ -68,8 +68,6 @@ def OneHdrn_initializer(string, position, dlen = None):
     momentum = PFiner_in1H(string)
     if H_path_info[1] == 'meson_operators' and dlen is not None:
         dlen = None
-        print('Here: ', H_path_info[1])
-        print('dlen =', dlen)
     #return 
     #print(f'Hadron(File_Info_Path = {H_path_info[0]}, Hadron_Type = {H_path_info[1]},Hadron_Position = {position},
     #Flavor = {htype}, Momentum = {momentum}, LGIrrep #= {Group_info}, Displacement = {Disp_info})')
