@@ -81,6 +81,12 @@ def momentum(p_momentum):
         string_value += f'{mom_map[px]}{mom_map[py]}{mom_map[pz]}'
     return {'mom_path': string_value, 'int_value': p_value}
 
+def momentumMH(p_momentum):
+    p = list(p_momentum)
+    px, py, pz = p
+    return f'{mom_map[px]}{mom_map[py]}{mom_map[pz]}'
+
+
 index_map = {
     (1,0,0): 'a',
     (1,0,1): 'b',
@@ -159,7 +165,7 @@ MDT_index_map = {
 
 class Hadron:
     def __init__(self, File_Info_Path = None, Hadron_Type = None, Hadron_Position = None, Flavor = None,
-          Momentum = None, LGIrrep = None, Displacement = None, dlen = None):
+          Momentum = None, LGIrrep = None, Displacement = None, dlen = None, jF = None, added_hadron_info = None):
         self.File_Info_Path  = File_Info_Path
         self.Hadron_Type     = Hadron_Type
         self.Hadron_Position = Hadron_Position
@@ -168,7 +174,15 @@ class Hadron:
         self.LGIrrep         = LGIrrep
         self.Displacement    = Displacement
         self.dlen            = dlen
-        if None in (File_Info_Path, Hadron_Type, Hadron_Position, Flavor, Momentum, LGIrrep , Displacement):
+        self.added_hadron_info = added_hadron_info
+        self.Info = [self.Hadron_Type, self.Hadron_Position, self.Flavor, self.Momentum, self.Displacement, self.dlen]
+        if jF is None:
+            self.jF = 1
+        else:
+            self.jF = jF
+        if None in (Hadron_Type, Hadron_Position, Flavor, Momentum, LGIrrep , Displacement):
+            raise ValueError(er1)
+        if (File_Info_Path, added_hadron_info) == (None, None):
             raise ValueError(er1)
         if Hadron_Type not in ['meson_operators', 'baryon_operators']:
             raise ValueError(er2)
@@ -192,7 +206,7 @@ class Hadron:
         return self.Displacement
     def getDlen(self):
         return self.dlen
-    def getInfo(self):
+    def getInfo_Setup0(self):
         with h5py.File(self.getFile_Info_Path(), 'r') as info_container:
             ht                   = self.getHadron_Type()
             fl, mom              = self.getFlavor(), self.getMomentum_Path()
@@ -203,6 +217,16 @@ class Hadron:
             spin_structures      = spin_structure_info[2:].reshape(N_Combinations, Spin_Displacement_N)
             coefcients_info      = info_container[ht][fl][mom][grp][disp]['dvals'][:].reshape(N_Combinations, 2)
             coefficients         = coefcients_info[:, 0] + 1j * coefcients_info[:, 1]
+            return coefficients, spin_structures, N_Combinations, Spin_Displacement_N
+    def getInfo_Setup(self):
+        if self.added_hadron_info is None:
+            coefficients, spin_structures, N_Combinations, Spin_Displacement_N = self.getInfo_Setup0()
+        else:
+            coefficients, spin_structures, N_Combinations, Spin_Displacement_N = self.added_hadron_info
+        coefficients = self.jF * coefficients
+        return coefficients, spin_structures, N_Combinations, Spin_Displacement_N
+    def getInfo(self):
+        coefficients, spin_structures, N_Combinations, Spin_Displacement_N = self.getInfo_Setup()
         list_info = []
         Hdrn = self.getHadron_Position()
         for i in range(N_Combinations):
@@ -221,9 +245,8 @@ class Hadron:
                 raise ValueError('Failed to extract the hadron informations *')
             list_info.append(comb_i)
         return list_info
-
     def __mul__(self, other):
-        if isinstance(other, TwoHadron):
+        if isinstance(other, (TwoHadron, ThreeHadron)):
             T_Mul = {}
             for i in range(other.getN()):
                 hdrn123 = other.getallCombi()[f'combi_{i}']['Hadrons'] + [self]
@@ -241,14 +264,43 @@ class Hadron:
                 FFactor = other[comb_y]['Factor']
                 T_Mul[f'combi_{i}'] = {'Hadrons': hdrns, 'Factor': FFactor}
             return T_Mul
+        elif isinstance(other, (int, float, complex)):
+            return Hadron(File_Info_Path = self.File_Info_Path, Hadron_Type = self.Hadron_Type, Hadron_Position = self.Hadron_Position,
+                          Flavor = self.Flavor, Momentum = self.Momentum, LGIrrep = self.LGIrrep, Displacement = self.Displacement,
+                          dlen = self.dlen, jF = (self.jF * other), added_hadron_info = self.added_hadron_info)
     def __rmul__(self, other):
-        if isinstance(other, TwoHadron):
-            return self * other
-        elif isinstance(other, dict):
+        if isinstance(other, (TwoHadron, ThreeHadron, dict, int, float, complex)):
             return self * other
         else:
             raise TypeError('Undefined multiplication with a single-hadron operator')
-
+    def __add__(self, other):
+        if isinstance(other, Hadron):
+            if self.Info != other.Info:
+                raise TypeError('To add two Hadrons, their infos must be equal')
+            slf_coefficients, slf_spin_structures, slf_N_Combinations, slf_Spin_Displacement_N = self.getInfo_Setup()
+            thr_coefficients, thr_spin_structures, thr_N_Combinations, thr_Spin_Displacement_N = other.getInfo_Setup()
+            if slf_Spin_Displacement_N != thr_Spin_Displacement_N:
+                raise ValueError('Failed to add two hadrons')
+            self_spin = slf_spin_structures.tolist()
+            other_spin = thr_spin_structures.tolist()
+            self_dict  = {tuple(s): c for s, c in zip(slf_spin_structures,  slf_coefficients)}
+            other_dict = {tuple(s): c for s, c in zip(thr_spin_structures, thr_coefficients)}
+            spin_structures = np.array(self_spin + other_spin)
+            spin_structures = np.unique(spin_structures, axis=0).tolist()
+            coefficients = []
+            for spin_combi in spin_structures:
+                coeff = 0.0
+                if spin_combi in self_spin:
+                    coeff += self_dict[tuple(spin_combi)]
+                if spin_combi in other_spin:
+                    coeff += other_dict[tuple(spin_combi)]
+                coefficients.append(coeff)
+            coefficients = np.array(coefficients)
+            spin_structures = np.array(spin_structures)
+            added_hadron_info = (coefficients, spin_structures, len(coefficients), slf_Spin_Displacement_N)
+            return Hadron(File_Info_Path = None, Hadron_Type = self.Hadron_Type, Hadron_Position = self.Hadron_Position, Flavor = self.Flavor,
+                          Momentum = self.Momentum, LGIrrep = self.LGIrrep, Displacement = self.Displacement, dlen = self.dlen, jF = None,
+                          added_hadron_info = added_hadron_info) 
 def hadron_info_multiplier(*hadrons):
     hadrons = [hadron.getInfo() for hadron in hadrons]
     def two_map_multiplier(map1, map2):
@@ -426,8 +478,8 @@ class TwoHadron:
             Hierarchy_0 =  self.Hadron1.getHadron_Type().split('_')[0] + '_' + self.Hadron2.getHadron_Type().split('_')[0]+'_operators'
             Hierarchy_1 =  momentum(self.Total_Momentum)['mom_path']
             Hierarchy_2 =  self.LGIrrep
-            Hierarchy_3 =  self.Hadron1.getMomentum_Path()[8:] + '_' + self.Hadron1.getGroup() + '_'
-            Hierarchy_3 += self.Hadron2.getMomentum_Path()[8:] + '_' + self.Hadron2.getGroup() + '_' + self.OpNum
+            Hierarchy_3 =  momentumMH(self.Hadron1.getMomentum()) + '_' + self.Hadron1.getGroup() + '_'
+            Hierarchy_3 += momentumMH(self.Hadron2.getMomentum()) + '_' + self.Hadron2.getGroup() + '_' + self.OpNum
             self.two_H_path = '/'+ Hierarchy_0 + '/' + Hierarchy_1 + '/'+ Hierarchy_2 + '/'+ Hierarchy_3
             print(f'Path of the two hadron operator: {self.two_H_path}')
             with h5py.File(self.File_Info_Path, 'r') as yunus0:
@@ -482,8 +534,8 @@ class TwoHadron:
             Hierarchy_1  =  momentum(self.Total_Momentum)['mom_path']
             Hierarchy_2  =  self.LGIrrep
             Hierarchy_3  =  'S=' + str(self.strangeness) + '_'
-            Hierarchy_3 +=  self.Hadron1.getMomentum_Path()[8:] + '_' + self.Hadron1.getGroup() + '_'
-            Hierarchy_3 += self.Hadron2.getMomentum_Path()[8:] + '_' + self.Hadron2.getGroup() + '_' + self.OpNum
+            Hierarchy_3 +=  momentumMH(self.Hadron1.getMomentum()) + '_' + self.Hadron1.getGroup() + '_'
+            Hierarchy_3 += momentumMH(self.Hadron2.getMomentum()) + '_' + self.Hadron2.getGroup() + '_' + self.OpNum
             self.two_H_path = '/'+ Hierarchy_0 + '/' + Hierarchy_1 + '/'+ Hierarchy_2 + '/'+ Hierarchy_3
             print(f'Path of the two hadron operator: {self.two_H_path}')
             with h5py.File(self.File_Info_Path, 'r') as yunus0:
@@ -580,3 +632,160 @@ class TwoHadron:
             return self * other
         else:
             raise TypeError('Undefined multiplication with a two-hadron operator')
+class ThreeHadron:
+    def __init__(self, File_Info_Path = None, Total_Momentum = None, LGIrrep = None, Hadron1 = None, Hadron2 = None, Hadron3 = None, 
+                 OpNum = None, strangeness = None):
+        self.File_Info_Path = File_Info_Path
+        self.Total_Momentum = Total_Momentum
+        self.LGIrrep        = LGIrrep
+        self.Hadron1        = Hadron1
+        self.Hadron2        = Hadron2
+        self.Hadron3        = Hadron3
+        self.strangeness    = strangeness
+        pos1 = self.Hadron1.getHadron_Position()[0]
+        pos2 = self.Hadron2.getHadron_Position()[0]
+        pos3 = self.Hadron3.getHadron_Position()[0]
+        if (pos1 != pos2) or pos2 != pos3:
+            raise ValueError('All of the hadrons must be on the same time slice!')
+        if self.Hadron1.getHadron_Position()[0] not in [0, 1]:
+            raise ValueError('Hadron operator must be either on sink or source')
+        self.Position = self.Hadron1.getHadron_Position()[0]
+        self.OpNum          = OpNum
+        if OpNum is None:
+            self.OpNum = '0'
+        else:
+            if isinstance(OpNum, (int,float)):
+                self.OpNum = str(OpNum)
+            else:
+                self.OpNum = OpNum
+        if (self.Hadron1.getHadron_Type() == 'meson_operators') and (self.Hadron2.getHadron_Type() == 'meson_operators') and (self.Hadron3.getHadron_Type() == 'baryon_operators'):
+            self.threehadron_type = 'meson_meson_baryon_operators'
+        else:
+            raise ValueError('Unrecognized type of two-hadron operators. You can have MesonBaryon, BaryonBaryon or MesonMeson')
+        if self.threehadron_type == 'meson_meson_baryon_operators':
+            if self.strangeness is None:
+                raise ValueError('For meson_meson_baryon_operators operators you must specifiy the strangeness!')
+            def flavor_specify(strngnss, hdrn_flvr):
+                if strngnss == 1:
+                    ff     = 1 if hdrn_flvr == 'kaon_su' else -1
+                    Siwtch = False if hdrn_flvr == 'kaon_su' else True
+                elif strngnss == -1:
+                    ff = 1 if hdrn_flvr == 'antikaon_ds' else -1
+                    Siwtch = False if hdrn_flvr == 'antikaon_ds' else True
+                elif strngnss == 0:
+                    ff = 1
+                    Siwtch = False
+                else:
+                    raise ValueError('Strangeness can be either 1, -1 or 0')
+                return Siwtch, ff
+            Hierarchy_0  =  self.Hadron1.getHadron_Type().split('_')[0] + '_' + self.Hadron2.getHadron_Type().split('_')[0]
+            Hierarchy_0  += '_' + self.Hadron3.getHadron_Type().split('_')[0]+'_operators'
+            Hierarchy_1  =  momentum(self.Total_Momentum)['mom_path']
+            Hierarchy_2  =  self.LGIrrep
+            Hierarchy_3  =  'S=' + str(self.strangeness) + '_'
+            Hierarchy_3 +=  momentumMH(self.Hadron1.getMomentum()) + '_' + self.Hadron1.getGroup() + '_'
+            Hierarchy_3 += momentumMH(self.Hadron2.getMomentum()) + '_' + self.Hadron2.getGroup() + '_' 
+            Hierarchy_3 += momentumMH(self.Hadron3.getMomentum()) + '_' + self.Hadron3.getGroup() + '_' + self.OpNum
+            self.three_H_path = '/'+ Hierarchy_0 + '/' + Hierarchy_1 + '/'+ Hierarchy_2 + '/'+ Hierarchy_3
+            print(f'Path of the three hadron operator: {self.three_H_path}')
+            with h5py.File(self.File_Info_Path, 'r') as yunus0:
+                if self.three_H_path not in yunus0:
+                    raise KeyError(f'The path {self.three_H_path} is not found in {self.File_Info_Path}')
+                yunus = yunus0[self.three_H_path]
+                self.N = yunus['ivals'][:][0]#Number of vertical   combinations
+                M = yunus['ivals'][:][1]#Number of horizontal combinations
+                Numerical_Coefficients = yunus['dvals'][:].reshape(self.N, 2)
+                Numerical_Coefficients = Numerical_Coefficients[:,0] + 1j * Numerical_Coefficients[:, 1]
+                if self.Position == 0:
+                    self.Numerical_Coefficients = Numerical_Coefficients.conj()
+                else:
+                    self.Numerical_Coefficients = Numerical_Coefficients
+                self.Hadron_TotalCombi      = yunus['ivals'][2:][:].reshape(self.N, M)
+            T = {}
+            for i in range(self.N):
+                H1_Flavor   = self.Hadron1.getFlavor()
+                H2_Flavor   = self.Hadron2.getFlavor()
+                h1_group_Info = flavor_specify(self.Hadron_TotalCombi[i][3], H1_Flavor)
+                h2_group_Info = flavor_specify(self.Hadron_TotalCombi[i][8], H2_Flavor)
+                extra_factor  = flavor_specify(self.Hadron_TotalCombi[i][3], H1_Flavor)[1]
+                if (not h1_group_Info[0]) and (not h2_group_Info[0]):
+                    H1_Momentum = tuple(self.Hadron_TotalCombi[i][0:3].tolist())
+                    H1_Group = self.Hadron1.getGroup() + '_' + str(self.Hadron_TotalCombi[i][4])
+                    H1_Dis = self.Hadron1.getDisplacement()
+                    H1_dlen = self.Hadron1.getDlen()
+                    H2_Momentum = tuple(self.Hadron_TotalCombi[i][5:8].tolist())
+                    H2_Group = self.Hadron2.getGroup() + '_' + str(self.Hadron_TotalCombi[i][9])
+                    H2_Dis = self.Hadron2.getDisplacement()
+                    H2_dlen = self.Hadron2.getDlen()
+                elif h1_group_Info[0] and h2_group_Info[0]:
+                    H2_Momentum = tuple(self.Hadron_TotalCombi[i][0:3].tolist())
+                    H2_Group = self.Hadron1.getGroup() + '_' + str(self.Hadron_TotalCombi[i][4])
+                    H2_Dis = self.Hadron1.getDisplacement()
+                    H2_dlen = self.Hadron1.getDlen()
+                    H1_Momentum = tuple(self.Hadron_TotalCombi[i][5:8].tolist())
+                    H1_Group = self.Hadron2.getGroup() + '_' + str(self.Hadron_TotalCombi[i][9])
+                    H1_Dis = self.Hadron2.getDisplacement()
+                    H1_dlen = self.Hadron2.getDlen()
+                else:
+                    raise ValueError('2Hhadron_Reader failed to extract hadorn combinations')
+                hdrn1 = Hadron(File_Info_Path = self.Hadron1.getFile_Info_Path(), Hadron_Type = self.Hadron1.getHadron_Type(),
+                               Hadron_Position = self.Hadron1.getHadron_Position(), Flavor = H1_Flavor,
+                               Momentum = H1_Momentum, LGIrrep = H1_Group, 
+                               Displacement = H1_Dis, dlen = H1_dlen)
+                hdrn2 = Hadron(File_Info_Path = self.Hadron2.getFile_Info_Path(), Hadron_Type = self.Hadron2.getHadron_Type(),
+                               Hadron_Position = self.Hadron2.getHadron_Position(), Flavor = H2_Flavor,
+                               Momentum = H2_Momentum, LGIrrep = H2_Group, 
+                               Displacement = H2_Dis, dlen = H2_dlen)
+                ForFactor = self.Numerical_Coefficients[i] * extra_factor
+                H3_Flavor   = self.Hadron3.getFlavor()
+                H3_Momentum = tuple(self.Hadron_TotalCombi[i][10:13].tolist())
+                H3_Dis = self.Hadron3.getDisplacement()
+                H3_Group = self.Hadron3.getGroup() + '_' + str(self.Hadron_TotalCombi[i][13])
+                H3_dlen = self.Hadron3.getDlen()
+                hdrn3 = Hadron(File_Info_Path = self.Hadron3.getFile_Info_Path(), Hadron_Type = self.Hadron3.getHadron_Type(),
+                               Hadron_Position = self.Hadron3.getHadron_Position(), Flavor = H3_Flavor,
+                               Momentum = H3_Momentum, LGIrrep = H3_Group, 
+                               Displacement = H3_Dis, dlen = H3_dlen)
+                T[f'combi_{i}'] = {'Hadrons': [hdrn1, hdrn2, hdrn3], 'Factor': ForFactor}
+            self.alIn = T
+        else:
+            raise ValueError(f' Unrecognized type of three-hadron operator {self.threehadron_type}')
+    def getN(self):
+        return self.N
+    def getallCombi(self):
+        return self.alIn
+    def __mul__(self, other):
+        if isinstance(other, Hadron):
+            T_Mul = {}
+            for i in range(self.N):
+                hdrn123 = self.alIn[f'combi_{i}']['Hadrons'] + [other]
+                ForFactor = self.alIn[f'combi_{i}']['Factor']
+                T_Mul[f'combi_{i}'] = {'Hadrons': hdrn123, 'Factor': ForFactor}
+            return T_Mul
+        elif isinstance(other, (TwoHadron, ThreeHadron)):
+            T_Mul = {}
+            counter = 0
+            for comb_x in self.getallCombi():
+                for comb_y in other.getallCombi():
+                    hdrns = self.getallCombi()[comb_x]['Hadrons'] + other.getallCombi()[comb_y]['Hadrons']
+                    FFactor = self.getallCombi()[comb_x]['Factor'] * other.getallCombi()[comb_y]['Factor']
+                    T_Mul[f'combi_{counter}'] = {'Hadrons': hdrns, 'Factor': FFactor}
+                    counter += 1
+            return T_Mul
+        elif isinstance(other, dict):
+            if not all(i.startswith('combi_') for i in other):
+                raise TypeError('Undefined multiplicaton with a TwoHadron object')
+            T_Mul = {}
+            counter = 0
+            for comb_x in self.getallCombi():
+                for comb_y in other:
+                    hdrns = self.getallCombi()[comb_x]['Hadrons'] + other[comb_y]['Hadrons']
+                    FFactor = self.getallCombi()[comb_x]['Factor'] * other[comb_y]['Factor']
+                    T_Mul[f'combi_{counter}'] = {'Hadrons': hdrns, 'Factor': FFactor}
+                    counter += 1
+            return T_Mul
+    def __rmul__(self, other):
+        if isinstance(other, (Hadron, TwoHadron, dict)):
+            return self * other
+        else:
+            raise TypeError('Undefined multiplication with a three-hadron operator')

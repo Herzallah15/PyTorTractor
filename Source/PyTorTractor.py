@@ -20,7 +20,7 @@ class PyCorrTorch():
           ...
             }
         '''
-    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None, optimal_path = True):
+    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None, optimal_path = None):
         final_result = 0.0
         for i, combi in enumerate(self.Hadrons_Map):
             print('______')

@@ -57,7 +57,7 @@ class PyCorrTorch_SingleCor:
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
 
     def TorchTractor_SingleCor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None,
-                              optimal_path = True):
+                              optimal_path = None):
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
         if (ModeDoublets is None) and (ModeTriplets is None):
@@ -82,7 +82,7 @@ class PyCorrTorch_SingleCor:
             normalized_pattern = NormalizePattern(Mode_Indices, Ps_indices, Ps_indices[:2])
             shapes = tuple([tuple(t.shape) for t in [*Stacked_Ms, *Stacked_Ps]])
             cache_key = f"{normalized_pattern}_{shapes}"
-            if optimal_path:
+            if optimal_path is True:
                 if path_exists_in_hdf5(cache_key):
                     path = load_path_from_hdf5(cache_key)
                 else:
@@ -93,7 +93,7 @@ class PyCorrTorch_SingleCor:
                     res = oe.contract(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize=path).sum()
                 except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
                     raise TypeError('That should not happen!!!!!!')
-            else:
+            elif optimal_path is False:
                 os.makedirs("jit_cache", exist_ok=True)
                 hash_key = hashlib.md5(cache_key.encode()).hexdigest()
                 cache_file = f"jit_cache/jit_{hash_key}.pt"
@@ -107,6 +107,11 @@ class PyCorrTorch_SingleCor:
                     traced_func.save(cache_file)
                 try:
                     res = traced_func(*Stacked_Ms, *Stacked_Ps).sum()
+                except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
+                    raise TypeError('That should not happen!!!!!!')
+            else:
+                try:
+                    res = torch.einsum(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps).sum()
                 except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
                     raise TypeError('That should not happen!!!!!!')
             clusters_with_kies_copy.append((full_cluster[0], res))
