@@ -317,7 +317,7 @@ def combine_all(all_info):
     return res
 
 
-def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading = False, cplx128 = True, verbose = False):
+def PyTor_Perambulator(Path_Perambulator = None, Device = 'cpu', Double_Reading = False, cplx128 = True, verbose = False):
     if cplx128:
         data_type = torch.complex128
     else:
@@ -377,7 +377,7 @@ def PyTor_Perambulator(Path_Perambulator = None, Device = None, Double_Reading =
     return P_SuperTenspr_Dict
 
 
-def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Doublet_Identity = None, verbose=False):
+def PyTor_MDoublet(Path_ModeDoublet = None, Device = 'cpu', cplx128 = True, Selected_Groups = None, Use_Doublet_Identity = None, verbose=False):
     if cplx128:
         data_type = torch.complex128
     else:
@@ -434,7 +434,7 @@ def PyTor_MDoublet(Path_ModeDoublet = None, Device = None, cplx128 = True, Selec
     print(r'MD_Tensor has been successfully constructed')
     return MD_SuperTensor_Dict
 
-def PyTor_MTriplet_Full(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None, Use_Triplet_Identity = None, verbose = False):
+def PyTor_MTriplet_Full(Path_ModeTriplet = None, Device = 'cpu', cplx128 = True, Selected_Groups = None, Use_Triplet_Identity = None, verbose = False):
     if cplx128:
         data_type = torch.complex128
     else:
@@ -692,7 +692,7 @@ def GridCoordinateConverter(NGrid, LatticeExtent, GridSpacing):
         x = r - (z*ly + y)*lx
         coordinates.append((x*lx,y*ly,z*lz))
     return {'Coordinates': coordinates, 'Ls': (LatticeExtent[0], LatticeExtent[1], LatticeExtent[2])}
-def PyTor_SG_Perambulator(Path_Sparse_Grid = None, LatticeExtent = None ,Device = None, Double_Reading = False, cplx128 = True, vebose = False):
+def PyTor_SG_Perambulator(Path_Sparse_Grid = None, LatticeExtent = None ,Device = 'cpu', Double_Reading = False, cplx128 = True, vebose = False):
     if cplx128:
         data_type = torch.complex128
     else:
@@ -756,7 +756,7 @@ def PyTor_SG_Perambulator(Path_Sparse_Grid = None, LatticeExtent = None ,Device 
 
 def is_SS(group):
     return group.split('_')[3][4:] == '0'
-def PyTor_MTriplet_Compressed(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None,
+def PyTor_MTriplet_Compressed(Path_ModeTriplet = None, Device = 'cpu', cplx128 = True, Selected_Groups = None,
                               Use_Triplet_Identity = None, verbose = False, nEv = None):
     if cplx128:
         data_type = torch.complex128
@@ -838,7 +838,7 @@ def PyTor_MTriplet_Compressed(Path_ModeTriplet = None, Device = None, cplx128 = 
     print(r'MT_Tensor has been successfully constructed')
     return MT_SuperTensor_Dict
 
-def PyTor_MTriplet(Path_ModeTriplet = None, Device = None, cplx128 = True, Selected_Groups = None,
+def PyTor_MTriplet(Path_ModeTriplet = None, Device = 'cpu', cplx128 = True, Selected_Groups = None,
                         Use_Triplet_Identity = None, verbose = False, Compressed = False, nEv = None):
     if not Compressed:
         return PyTor_MTriplet_Full(Path_ModeTriplet = Path_ModeTriplet, Device = Device, cplx128 = cplx128,

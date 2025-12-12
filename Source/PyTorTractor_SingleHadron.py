@@ -57,7 +57,7 @@ class PyCorrTorch_SingleCor:
         print('Each cluster is now splitted into many clusters with various explicit spin combinations')
 
     def TorchTractor_SingleCor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None,
-                              optimal_path = None):
+                              optimal_path = None, device = 'cpu'):
         if (All_Perambulators is None):
             raise ValueError('The perambulators_dicts must be forwarded to TorchTractor as All_Perambulators = ...')
         if (ModeDoublets is None) and (ModeTriplets is None):
@@ -79,6 +79,9 @@ class PyCorrTorch_SingleCor:
                                                                                           all_SG_perambulators = all_SG_perambulators,
                                                                                           Hadron_Momenta = self.hadron_momentum_map,
                                                                                           current_time= self.current_time)
+            if device != Stacked_Ps[0].device:
+                Stacked_Ps = [tnsr.to(device) for tnsr in Stacked_Ps]
+                Stacked_Ms = [tnsr.to(device) for tnsr in Stacked_Ms]
             normalized_pattern = NormalizePattern(Mode_Indices, Ps_indices, Ps_indices[:2])
             shapes = tuple([tuple(t.shape) for t in [*Stacked_Ms, *Stacked_Ps]])
             cache_key = f"{normalized_pattern}_{shapes}"
@@ -86,14 +89,44 @@ class PyCorrTorch_SingleCor:
                 if path_exists_in_hdf5(cache_key):
                     path = load_path_from_hdf5(cache_key)
                 else:
-                    path_info = oe.contract_path(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize='optimal')
+                    path_info = oe.contract_path(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize='auto')
                     path = path_info[0]
                     save_path_to_hdf5(cache_key, path)
                 try:
                     res = oe.contract(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Stacked_Ms, *Stacked_Ps, optimize=path).sum()
                 except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
-                    raise TypeError('That should not happen!!!!!!')
+                    try:
+                        Ny = Stacked_Ms[0].shape[0]
+                        Nz = Stacked_Ps[0].shape[1]
+                        chunk_size_y = 10 if Ny > 10 else 1
+                        chunk_size_z = 10 if Nz > 10 else 1
+                        res = 0.0
+                        for i in range(0, Ny, chunk_size_y):
+                            i_end = min(i + chunk_size_y, Ny)
+                            for j in range(0, Nz, chunk_size_z):
+                                j_end = min(j + chunk_size_z, Nz)
+                                Ms_chunk = []
+                                for mode_tensor in Stacked_Ms:
+                                    if mode_tensor.ndim == 4:
+                                        chunked_mode = mode_tensor[i:i_end, :, :, :]
+                                    elif mode_tensor.ndim == 3:
+                                        chunked_mode = mode_tensor[i:i_end, :, :]
+                                    else:
+                                        raise ValueError(f'Unrecognized Mode shape: {mode_tensor.shape}')
+                                    Ms_chunk.append(chunked_mode)
+                                Ps_chunk = []
+                                for peram_tensor in Stacked_Ps:
+                                    if peram_tensor.ndim == 4:
+                                        chunked_peram = peram_tensor[i:i_end, j:j_end, :, :]
+                                    else:
+                                        raise ValueError(f'Unrecognized Perambulator shape: {peram_tensor.shape}')
+                                    Ps_chunk.append(chunked_peram)
+                                res_chunk = oe.contract(f'{Mode_Indices},{Ps_indices}->{Ps_indices[:2]}', *Ms_chunk, *Ps_chunk, optimize='auto')
+                                res += res_chunk.sum()
+                    except (RuntimeError, MemoryError, torch.cuda.OutOfMemoryError) as er:
+                        raise TypeError('That should not happen!!!!!!')
             elif optimal_path is False:
+                print('Warining: You are not using the optimal path!')
                 os.makedirs("jit_cache", exist_ok=True)
                 hash_key = hashlib.md5(cache_key.encode()).hexdigest()
                 cache_file = f"jit_cache/jit_{hash_key}.pt"

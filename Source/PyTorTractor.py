@@ -20,21 +20,23 @@ class PyCorrTorch():
           ...
             }
         '''
-    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None, optimal_path = None):
+    def TorchTractor(self, All_Perambulators = None, ModeDoublets = None, ModeTriplets = None, all_SG_perambulators = None, optimal_path = None,
+                     device = 'cpu'):
         final_result = 0.0
         for i, combi in enumerate(self.Hadrons_Map):
-            print('______')
+            #print('______')
             hadrons    = self.Hadrons_Map[combi]['Hadrons']
             num_Factor = self.Hadrons_Map[combi]['Factor']
             do_contration0 = PyCorrTorch_SingleCor(SinkTime = self.SinkTime, SourceTime = self.SourceTime, current_time = self.current_time,
                                                    Hadrons = hadrons, Path_Wicktract = self.Path_Wicktract, Wick_subpath = self.Wick_subpath)
             do_contration1 = do_contration0.TorchTractor_SingleCor(All_Perambulators = All_Perambulators, 
                                                                    ModeDoublets = ModeDoublets, ModeTriplets = ModeTriplets,
-                                                                   all_SG_perambulators = all_SG_perambulators, optimal_path = optimal_path)
-            print(do_contration1)
+                                                                   all_SG_perambulators = all_SG_perambulators, optimal_path = optimal_path,
+                                                                   device = device)
+            #print(do_contration1)
             do_contration2 = combine_all(do_contration1)
             res = do_contration2 * num_Factor
-            print(f'Correlator_{i} = {res}')
+            #print(f'Correlator_{i} = {res}')
             final_result += res
         return final_result
         
