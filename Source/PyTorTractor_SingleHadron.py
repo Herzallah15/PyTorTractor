@@ -98,8 +98,8 @@ class PyCorrTorch_SingleCor:
                     try:
                         Ny = Stacked_Ms[0].shape[0]
                         Nz = Stacked_Ps[0].shape[1]
-                        chunk_size_y = 10 if Ny > 10 else 1
-                        chunk_size_z = 10 if Nz > 10 else 1
+                        chunk_size_y = 1#10 if Ny > 10 else 1
+                        chunk_size_z = 1#10 if Nz > 10 else 1
                         res = 0.0
                         for i in range(0, Ny, chunk_size_y):
                             i_end = min(i + chunk_size_y, Ny)
