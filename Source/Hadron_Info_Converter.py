@@ -196,8 +196,12 @@ class Hadron:
         return self.Flavor
     def getMomentum(self):
         return self.Momentum
-    def getMomentum_Path(self):
-        return momentum(self.Momentum)['mom_path']
+    def getMomentum_Path(self, modify=False):
+        string_value = momentum(self.Momentum)['mom_path']
+        if modify and string_value in ('mom_ray_00#', 'mom_ray_0#0', 'mom_ray_#00', 'mom_ray_00=', 'mom_ray_0=0', 'mom_ray_=00'):
+            trans = str.maketrans('#=', '+-')
+            string_value = string_value.translate(trans)
+        return string_value
     def getMomentum_Value(self):
         return momentum(self.Momentum)['int_value']
     def getGroup(self):
@@ -209,7 +213,7 @@ class Hadron:
     def getInfo_Setup0(self):
         with h5py.File(self.getFile_Info_Path(), 'r') as info_container:
             ht                   = self.getHadron_Type()
-            fl, mom              = self.getFlavor(), self.getMomentum_Path()
+            fl, mom              = self.getFlavor(), self.getMomentum_Path(modify=True)
             grp, disp            = self.getGroup(), self.getDisplacement()
             spin_structure_info  = info_container[ht][fl][mom][grp][disp]['ivals'][:]
             N_Combinations       = spin_structure_info[0]
