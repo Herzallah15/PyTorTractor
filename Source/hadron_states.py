@@ -125,12 +125,22 @@ def DMeson(ispin, mntm1 = None):
         mntm = 1
     else:
         mntm = mntm1
-    state = {1: hdrn(1, 'D+', mntm, 'dB', 'c', barness = fls), -1:  hdrn(1, 'D-', mntm, 'cB', 'd', barness = fls)
-            , 0:  hdrn(1, 'D0', mntm, 'uB', 'c', barness = fls)}
+    state = {1/2: hdrn(1, 'D', mntm, 'cB', 'u', barness = fls), -1/2:  hdrn(1, 'D', mntm, 'cB', 'd', barness = fls)}
     if ispin in state:
         return state[ispin]
     else:
-        raise TypeError(f"Error: First argument of DMeson must be the its type, i.e. +, - or 0 ")
+        raise TypeError(f"Error: First argument of DMeson must be the the isospin and it must be in 1/2 or -1/2")
+
+def DMesonC(ispin, mntm1 = None):
+    if mntm1 == None:
+        mntm = 1
+    else:
+        mntm = mntm1
+    state = {1/2: hdrn(1, 'Dc', mntm, 'dB', 'c', barness = fls), -1/2:  hdrn(-1, 'Dc', mntm, 'uB', 'c', barness = fls)}
+    if ispin in state:
+        return state[ispin]
+    else:
+        raise TypeError(f"Error: First argument of DMesonC must be the the isospin and it must be in 1/2 or -1/2")
 
 def Eta(mntm1 = None):
     if mntm1 == None:
@@ -164,7 +174,7 @@ def TwoHadronAnnihilation(rep=None, I=None, I3=None):
             state = [(-1/2, -1/2)]
             super_position_factors = [1]
             overall_normalization = normalize_function(super_position_factors)
-            
+
     elif list(rep) == [1/2, 1]:
         # Equation 7.14: 1/2 ⊗ 1
         if I == 1/2 and I3 == 1/2:
@@ -191,7 +201,7 @@ def TwoHadronAnnihilation(rep=None, I=None, I3=None):
             state = [(-1/2, -1)]
             super_position_factors = [1]
             overall_normalization = normalize_function(super_position_factors)
-            
+
     elif list(rep) == [1, 1]:
         # Equation 7.15: 1 ⊗ 1
         if I == 0 and I3 == 0:
@@ -230,7 +240,7 @@ def TwoHadronAnnihilation(rep=None, I=None, I3=None):
             state = [(-1, -1)]
             super_position_factors = [1]
             overall_normalization = normalize_function(super_position_factors)
-            
+
     elif list(rep) == [1/2, 3/2]:
         # Equation 7.16: 1/2 ⊗ 3/2
         if I == 1 and I3 == 1:
@@ -265,7 +275,7 @@ def TwoHadronAnnihilation(rep=None, I=None, I3=None):
             state = [(-1/2, -3/2)]
             super_position_factors = [1]
             overall_normalization = normalize_function(super_position_factors)
-            
+
     elif list(rep) == [1, 3/2]:
         # Equation 7.17: 1 ⊗ 3/2
         if I == 1/2 and I3 == 1/2:
@@ -318,13 +328,13 @@ def TwoHadronAnnihilation(rep=None, I=None, I3=None):
             overall_normalization = normalize_function(super_position_factors)
     else:
         raise ValueError(f"Representation {rep} not implemented")
-    
+
     return state, super_position_factors, overall_normalization
 
 
 colins_reps = [[1/2, 1/2], [1/2, 1], [1, 1], [1/2, 3/2], [1, 3/2]]
 State_Detector = {'Delta': 3/2, 'Sigma': 1, 'Nucleon': 1/2, 'Xi': 1/2, 'Lambda': 0, 'Omega': 0,
-                  'Kaon': 1/2, 'KaonC': 1/2, 'Pion': 1, 'sigma': 0, 'Phi': 0, 'DMeson': 1, 'Eta': 0}
+                  'Kaon': 1/2, 'KaonC': 1/2, 'Pion': 1, 'sigma': 0, 'Phi': 0, 'DMeson': 1/2, 'DMesonC': 1/2, 'Eta': 0}
 
 def twoHO(rep=None, I=None, I3=None, A=None, B=None):
     name_A = A.__name__
